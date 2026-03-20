@@ -1,0 +1,7 @@
+customtkinter
+pandas
+yfinance
+curl_cffi
+numpy
+matplotlib
+mplfinance

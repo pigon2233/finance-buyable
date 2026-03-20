@@ -13,7 +13,7 @@ def get_yf_ticker(ticker: str):
     """
     使用自訂標頭與強制 IPv4 解析的 Session 來避免 yfinance 連線失敗
     """
-    session = requests.Session(impersonate="chrome", curl_options={CurlOpt.IPRESOLVE: 1})
+    session = requests.Session(impersonate="chrome", verify=False, curl_options={CurlOpt.IPRESOLVE: 1})
     return yf.Ticker(ticker, session=session)
 
 def fetch_stock_history(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
