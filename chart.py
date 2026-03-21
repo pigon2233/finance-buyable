@@ -4,11 +4,14 @@ import pandas as pd
 import customtkinter as ctk
 import mplfinance as mpf
 import warnings
-warnings.filterwarnings('ignore') # 忽略 mplfinance 的有些警告
+import logging
 
-def plot_stock_chart(master_frame, df: pd.DataFrame, ticker: str, indicator_name: str = "DMPI"):
+warnings.filterwarnings('ignore') # 忽略 mplfinance 的有些警告
+logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR) # 忽略找不到特定中文字型的洗頻警告
+
+def plot_stock_chart(master_frame, df: pd.DataFrame, ticker: str):
     """
-    在指定的 customtkinter frame 內繪製 K線圖與所選的技術指標
+    在指定的 customtkinter frame 內同時繪製 K線圖與多個技術指標儀表板
     """
     for widget in master_frame.winfo_children():
         widget.destroy()
@@ -21,26 +24,31 @@ def plot_stock_chart(master_frame, df: pd.DataFrame, ticker: str, indicator_name
     df_plot = df.copy()
     if not isinstance(df_plot.index, pd.DatetimeIndex):
         df_plot.index = pd.to_datetime(df_plot.index)
+        
+    # 不強制裁切長度，讓 K 線圖完整呈現使用者所選的回測期間 (1y, 2y, 5y 等)
+    # 使用者若覺得太擠，可以利用圖表下方的 Navigation Toolbar (放大鏡) 自行縮放觀看細節
 
-    # 確保資料為 float
+    # 確保資料為 float，並填補指標空值避免繪圖崩潰
     for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
         df_plot[col] = df_plot[col].astype(float)
+        
+    for col in ['DMPI', 'RSI', 'MACD', 'MACD_Signal', 'MACD_Hist']:
+        if col in df_plot.columns:
+            df_plot[col] = df_plot[col].fillna(0)
 
     apds = []
     
-    # === 標記進出場訊號 ===
+    # === 標記進出場訊號 (以 DMPI 為主) ===
     if 'Signal' in df_plot.columns:
         buy_signals = df_plot['Signal'] == 1
         sell_signals = df_plot['Signal'] == -1
         
         buy_markers = df_plot['Low'].copy()
         buy_markers[~buy_signals] = float('nan')
-        # 標記在略低於低點的地方 (往下拉一點)
         buy_markers = buy_markers * 0.98  
         
         sell_markers = df_plot['High'].copy()
         sell_markers[~sell_signals] = float('nan')
-        # 標記在略高於高點的地方 (往上拉一點)
         sell_markers = sell_markers * 1.02  
         
         if buy_signals.any():
@@ -49,29 +57,35 @@ def plot_stock_chart(master_frame, df: pd.DataFrame, ticker: str, indicator_name
             apds.append(mpf.make_addplot(sell_markers, type='scatter', markersize=150, marker='v', color='#ff0000', panel=0))
 
     # === 動態繪出對應的副圖指標 ===
-    if indicator_name == "自創 DMPI" and 'DMPI' in df_plot.columns:
-        apds.append(mpf.make_addplot(df_plot['DMPI'], panel=2, color='orange', ylabel='DMPI'))
-        # 畫零軸
-        apds.append(mpf.make_addplot([0]*len(df_plot), panel=2, color='white', linestyle='dashed', alpha=0.5))
-        
-    elif indicator_name == "RSI" and 'RSI' in df_plot.columns:
-        apds.append(mpf.make_addplot(df_plot['RSI'], panel=2, color='purple', ylabel='RSI (14)'))
-        # RSI 輔助線 30 (超賣區) 與 70 (超買區)
-        apds.append(mpf.make_addplot([70]*len(df_plot), panel=2, color='red', linestyle='dashed', alpha=0.6))
-        apds.append(mpf.make_addplot([30]*len(df_plot), panel=2, color='green', linestyle='dashed', alpha=0.6))
-        
-    elif indicator_name == "MACD" and 'MACD' in df_plot.columns:
-        # MACD 包含 MACD 線 (快-慢), Signal 線, Hist 柱狀圖
-        colors = ['red' if val < 0 else 'green' for val in df_plot['MACD_Hist']]
-        apds.append(mpf.make_addplot(df_plot['MACD'], panel=2, color='#00bfff', ylabel='MACD'))
-        apds.append(mpf.make_addplot(df_plot['MACD_Signal'], panel=2, color='orange'))
-        apds.append(mpf.make_addplot(df_plot['MACD_Hist'], type='bar', panel=2, color=colors, alpha=0.5))
-
-    # 針對 Windows 中文顯示與深色樣式
-    plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] 
-    plt.rcParams['axes.unicode_minus'] = False
+    panels_count = 2 # panel 0: K線, panel 1: Volume
+    ratios = [4, 1]
     
-    # 定義自訂客製化美化風格 (Dark Mode)
+    # DMPI (Panel 2)
+    if 'DMPI' in df_plot.columns:
+        colors_dmpi = ['#ff5555' if val > 0 else '#00ff00' for val in df_plot['DMPI']]
+        apds.append(mpf.make_addplot(df_plot['DMPI'], type='bar', panel=panels_count, color=colors_dmpi, ylabel='DMPI 動能', alpha=0.7))
+        apds.append(mpf.make_addplot([0]*len(df_plot), panel=panels_count, color='white', linestyle='dashed', alpha=0.5))
+        panels_count += 1
+        ratios.append(1)
+        
+    # RSI (Panel 3)
+    if 'RSI' in df_plot.columns:
+        apds.append(mpf.make_addplot(df_plot['RSI'], panel=panels_count, color='#c266ff', ylabel='RSI (14)'))
+        apds.append(mpf.make_addplot([70]*len(df_plot), panel=panels_count, color='#ff5555', linestyle='dashed', alpha=0.6))
+        apds.append(mpf.make_addplot([30]*len(df_plot), panel=panels_count, color='#00ff00', linestyle='dashed', alpha=0.6))
+        panels_count += 1
+        ratios.append(1)
+        
+    # MACD (Panel 4)
+    if 'MACD' in df_plot.columns:
+        colors_macd = ['#ff5555' if val > 0 else '#00ff00' for val in df_plot['MACD_Hist']]
+        apds.append(mpf.make_addplot(df_plot['MACD'], panel=panels_count, color='#00bfff', ylabel='MACD'))
+        apds.append(mpf.make_addplot(df_plot['MACD_Signal'], panel=panels_count, color='orange'))
+        apds.append(mpf.make_addplot(df_plot['MACD_Hist'], type='bar', panel=panels_count, color=colors_macd, alpha=0.5))
+        panels_count += 1
+        ratios.append(1.5)
+
+    # 解決 mplfinance 強制覆寫字型導致的中文亂碼問題，利用 rc 傳入中文字型
     mc = mpf.make_marketcolors(
         up='#ef5350', down='#26a69a',
         edge='inherit',
@@ -82,39 +96,43 @@ def plot_stock_chart(master_frame, df: pd.DataFrame, ticker: str, indicator_name
         marketcolors=mc,
         gridcolor='#333333',
         gridstyle='--',
-        facecolor='#1e1e1e',     # K線圖底色
-        figcolor='#1e1e1e',      # 整個圖片的外圍底色
+        facecolor='#121212',     # K線圖底色改深一點
+        figcolor='#121212',      # 整個圖片的外圍底色
         y_on_right=True,
-        rc={'text.color': 'white', 'axes.labelcolor': 'white', 
-            'xtick.color': 'white', 'ytick.color': 'white'}
+        rc={
+            'font.family': ['Microsoft JhengHei', 'sans-serif'],
+            'axes.unicode_minus': False,
+            'text.color': 'white', 
+            'axes.labelcolor': 'white', 
+            'xtick.color': 'white', 
+            'ytick.color': 'white'
+        }
     )
     
     # 建立 mplfinance 畫布
-    has_subpanel = indicator_name in ["自創 DMPI", "RSI", "MACD"]
     fig, axes = mpf.plot(
         df_plot,
         type='candle',
         volume=True,
         addplot=apds,
         style=s,
-        title=f"\n{ticker} 股價與 {indicator_name} 分析",
+        title=f"\n{ticker} 多指標綜合分析儀表板",
         ylabel='股價 (Price)',
         ylabel_lower='成交量 (Vol)',
         returnfig=True,
-        figsize=(12, 7),
-        panel_ratios=(4, 1, 1.5) if has_subpanel else (3, 1),
+        figsize=(12, 10),
+        panel_ratios=ratios,
         tight_layout=True
     )
     
+    fig.patch.set_facecolor('#121212')
+    
     # 將 matplotlib figure 嵌入 Tkinter (customtkinter)
     canvas = FigureCanvasTkAgg(fig, master=master_frame)
-    
-    # 建立原生的 Matplotlib 互動控制列 (可縮放、平移)
     toolbar = NavigationToolbar2Tk(canvas, master_frame)
     toolbar.update()
     
     canvas.draw()
     canvas.get_tk_widget().pack(side="top", fill="both", expand=True)
     
-    # 清理避免記憶體洩漏
     plt.close(fig)

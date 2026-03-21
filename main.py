@@ -11,53 +11,35 @@ ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
 class HelpWindow(ctk.CTkToplevel):
-    def __init__(self, master, indicator_name):
+    def __init__(self, master):
         super().__init__(master)
-        self.title("指標說明")
-        self.geometry("500x380")
+        self.title("多指標綜合儀表板說明")
+        self.geometry("600x550")
         self.attributes("-topmost", True)
         self.configure(fg_color="#121212")
         
-        title_lbl = ctk.CTkLabel(self, text=f"【 {indicator_name} 】 說明", font=("Microsoft JhengHei", 20, "bold"), text_color="#00bfff")
+        title_lbl = ctk.CTkLabel(self, text="【 儀表板三大核心指標 】 說明", font=("Microsoft JhengHei", 20, "bold"), text_color="#00bfff")
         title_lbl.pack(pady=20)
         
         textbox = ctk.CTkTextbox(self, font=("Microsoft JhengHei", 14), wrap="word", fg_color="#1e1e1e", corner_radius=10)
         textbox.pack(fill="both", expand=True, padx=25, pady=(0, 25))
         
-        if indicator_name == "自創 DMPI":
-            desc = (
-                "動態市場壓力指數 (DMPI) 是結合價格壓力、成交量動能與波動懲罰的客製化指標。\n\n"
-                "【權重與原理】\n"
-                "1. 計算實體 K 線在總振幅中的淨壓力位置 (-1 ~ 1)\n"
-                "2. 乘上近期成交量相對放大的倍數\n"
-                "3. 除以真實波動率 (ATR) 懲罰高風險時段\n"
-                "4. 經過平滑後，常態數值會在 -50 到 50 震盪。\n\n"
-                "【訊號條件】\n"
-                "• 買進：由下往上突破零軸 (空翻多)\n"
-                "• 賣出：由上往下跌破零軸 (多翻空)\n\n"
-                "適合作為動能確認與波段起漲點的捕捉。"
-            )
-        elif indicator_name == "RSI":
-            desc = (
-                "相對強弱指標 (RSI) 用於衡量近期價格變動的幅度，評估資產是否超買或超賣。\n\n"
-                "【權重與原理】\n"
-                "預設週期：14 天\n"
-                "數值範圍：0 ~ 100\n\n"
-                "【訊號條件】\n"
-                "• 買進：RSI 從低於 30 (超賣區) 反彈向上穿越 30\n"
-                "• 賣出：RSI 從高於 70 (超買區) 回落向下穿越 70\n\n"
-                "此策略適合在震盪盤整區間進行低買高賣操作。"
-            )
-        else:
-            desc = (
-                "平滑異同移動平均線 (MACD) 捕捉股價趨勢與動能的變化。\n\n"
-                "【權重與原理】\n"
-                "快線EMA(12), 慢線EMA(26), 訊號線(9)\n\n"
-                "【訊號條件】\n"
-                "• 買進：柱狀圖(MACD - Signal) 由負轉正 (黃金交叉)\n"
-                "• 賣出：柱狀圖由正轉負 (死亡交叉)\n\n"
-                "典型的趨勢跟蹤指標，適合在中長期的趨勢盤中捕捉主升段。"
-            )
+        desc = (
+            "本系統整合了三套強大的動能與趨勢指標，由上而下為您進行全方位的盤勢解析：\n\n"
+            "一、自創 DMPI (動態市場壓力指數) 🚀\n"
+            "結合價格壓力、成交流量與 ATR 波動懲罰的客製化指標。\n"
+            "• 買進：由下往上突破零軸 (空翻多)\n"
+            "• 賣出：由上往下跌破零軸 (多翻空)\n\n"
+            "二、RSI (相對強弱指標) 📊\n"
+            "衡量近期價格變動幅度，評估資產是否超買或超賣。\n"
+            "• 買進：從低於 30 (超賣區) 反彈向上穿越 30\n"
+            "• 賣出：從高於 70 (超買區) 回落向下穿越 70\n\n"
+            "三、MACD (平滑異同移動平均線) 📈\n"
+            "捕捉中長期的股價趨勢與波段動能變化。\n"
+            "• 買進：柱狀圖出水面由負轉正 (黃金交叉)\n"
+            "• 賣出：柱狀圖下沉由正轉負 (死亡交叉)\n\n"
+            "綜合參考三個指標的共振訊號，勝率與穩定度將大幅提升！"
+        )
         textbox.insert("0.0", desc)
         textbox.configure(state="disabled")
 
@@ -91,15 +73,15 @@ class App(ctk.CTk):
         self.period_combo.set("1y")
         self.period_combo.pack(side="left", padx=10)
         
-        self.ind_label = ctk.CTkLabel(self.top_frame, text="指標策略:", font=("Microsoft JhengHei", 15, "bold"), text_color="#00bfff")
-        self.ind_label.pack(side="left", padx=10)
-
-        self.ind_combo = ctk.CTkComboBox(self.top_frame, values=["自創 DMPI", "RSI", "MACD"], width=140, font=("Microsoft JhengHei", 15), height=38, button_color="#0052cc", border_color="#0052cc")
-        self.ind_combo.set("自創 DMPI")
-        self.ind_combo.pack(side="left", padx=5)
+        self.strategy_label = ctk.CTkLabel(self.top_frame, text="主圖與回測基準:", font=("Microsoft JhengHei", 15, "bold"), text_color="#00bfff")
+        self.strategy_label.pack(side="left", padx=10)
         
-        self.help_btn = ctk.CTkButton(self.top_frame, text="❓", width=38, height=38, font=("Arial", 16, "bold"), command=self.show_help, fg_color="#333333", hover_color="#555555", corner_radius=8)
-        self.help_btn.pack(side="left", padx=(0, 20))
+        self.strategy_seg = ctk.CTkSegmentedButton(self.top_frame, values=["自創 DMPI", "RSI", "MACD"], font=("Microsoft JhengHei", 14), selected_color="#0052cc", selected_hover_color="#0066ff")
+        self.strategy_seg.set("自創 DMPI")
+        self.strategy_seg.pack(side="left", padx=5)
+        
+        self.help_btn = ctk.CTkButton(self.top_frame, text="指標介紹 ❓", width=120, height=38, font=("Microsoft JhengHei", 15, "bold"), command=self.show_help, fg_color="#333333", hover_color="#555555", corner_radius=8)
+        self.help_btn.pack(side="left", padx=(10, 20))
         
         self.search_btn = ctk.CTkButton(self.top_frame, text="開始分析", font=("Microsoft JhengHei", 15, "bold"), command=self.on_search_clicked, height=45, corner_radius=10)
         self.search_btn.pack(side="left", padx=20)
@@ -107,12 +89,40 @@ class App(ctk.CTk):
         self.status_label = ctk.CTkLabel(self.top_frame, text="", text_color="gray", font=("Microsoft JhengHei", 14))
         self.status_label.pack(side="left", fill="x", expand=True, padx=10)
         
-        # --- Suggestion Frame (Card Layout) ---
-        self.sugg_frame = ctk.CTkFrame(self, fg_color="#1e1e1e", corner_radius=15, border_width=1, border_color="#333333")
+        # --- Suggestion Dashboard (Grid Layout) ---
+        self.sugg_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.sugg_frame.grid(row=2, column=0, padx=25, pady=(0, 25), sticky="ew")
+        self.sugg_frame.grid_columnconfigure((0, 1, 2), weight=1)
         
-        self.sugg_label = ctk.CTkLabel(self.sugg_frame, text="最新進出場建議: 尚未分析", font=("Microsoft JhengHei", 22, "bold"))
-        self.sugg_label.pack(pady=25)
+        # DMPI Card
+        self.card_dmpi = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=15, border_width=1, border_color="#333333")
+        self.card_dmpi.grid(row=0, column=0, padx=(0, 10), sticky="nsew")
+        self.lbl_dmpi_title = ctk.CTkLabel(self.card_dmpi, text="自創 DMPI 動能", font=("Microsoft JhengHei", 16, "bold"), text_color="#00bfff")
+        self.lbl_dmpi_title.pack(pady=(15, 5))
+        self.lbl_dmpi_act = ctk.CTkLabel(self.card_dmpi, text="等待分析", font=("Microsoft JhengHei", 22, "bold"))
+        self.lbl_dmpi_act.pack(pady=5)
+        self.lbl_dmpi_desc = ctk.CTkLabel(self.card_dmpi, text="請輸入股票代號並開始分析", font=("Microsoft JhengHei", 13), text_color="gray", wraplength=350)
+        self.lbl_dmpi_desc.pack(pady=(5, 15), padx=10)
+        
+        # RSI Card
+        self.card_rsi = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=15, border_width=1, border_color="#333333")
+        self.card_rsi.grid(row=0, column=1, padx=5, sticky="nsew")
+        self.lbl_rsi_title = ctk.CTkLabel(self.card_rsi, text="RSI (14) 相對強弱", font=("Microsoft JhengHei", 16, "bold"), text_color="#c266ff")
+        self.lbl_rsi_title.pack(pady=(15, 5))
+        self.lbl_rsi_act = ctk.CTkLabel(self.card_rsi, text="等待分析", font=("Microsoft JhengHei", 22, "bold"))
+        self.lbl_rsi_act.pack(pady=5)
+        self.lbl_rsi_desc = ctk.CTkLabel(self.card_rsi, text="請輸入股票代號並開始分析", font=("Microsoft JhengHei", 13), text_color="gray", wraplength=350)
+        self.lbl_rsi_desc.pack(pady=(5, 15), padx=10)
+        
+        # MACD Card
+        self.card_macd = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=15, border_width=1, border_color="#333333")
+        self.card_macd.grid(row=0, column=2, padx=(10, 0), sticky="nsew")
+        self.lbl_macd_title = ctk.CTkLabel(self.card_macd, text="MACD 趨勢跟蹤", font=("Microsoft JhengHei", 16, "bold"), text_color="#ff9900")
+        self.lbl_macd_title.pack(pady=(15, 5))
+        self.lbl_macd_act = ctk.CTkLabel(self.card_macd, text="等待分析", font=("Microsoft JhengHei", 22, "bold"))
+        self.lbl_macd_act.pack(pady=5)
+        self.lbl_macd_desc = ctk.CTkLabel(self.card_macd, text="請輸入股票代號並開始分析", font=("Microsoft JhengHei", 13), text_color="gray", wraplength=350)
+        self.lbl_macd_desc.pack(pady=(5, 15), padx=10)
         
         # --- Main Tabview ---
         self.tabview = ctk.CTkTabview(self, fg_color="#1e1e1e", segmented_button_selected_color="#0052cc", segmented_button_selected_hover_color="#0066ff", text_color="white", corner_radius=15)
@@ -129,8 +139,7 @@ class App(ctk.CTk):
         self.bind('<Return>', lambda event: self.on_search_clicked())
 
     def show_help(self):
-        ind = self.ind_combo.get()
-        HelpWindow(self, ind)
+        HelpWindow(self)
 
     def setup_chart_tab(self):
         self.tab_chart.grid_columnconfigure(0, weight=1)
@@ -157,10 +166,13 @@ class App(ctk.CTk):
             return
             
         period = self.period_combo.get()
-        ind_name = self.ind_combo.get()
+        base_strategy = self.strategy_seg.get()
         
         self.status_label.configure(text=f"正在分析 {ticker} ...這可能需要幾十秒鐘", text_color="yellow")
-        self.sugg_label.configure(text="最新進出場建議: 分析資料處理中...", text_color="white")
+        
+        self.lbl_dmpi_act.configure(text="分析處理中...", text_color="white")
+        self.lbl_rsi_act.configure(text="分析處理中...", text_color="white")
+        self.lbl_macd_act.configure(text="分析處理中...", text_color="white")
         
         self.fund_textbox.delete("0.0", "end")
         self.backtest_textbox.delete("0.0", "end")
@@ -168,9 +180,9 @@ class App(ctk.CTk):
         for widget in self.chart_container.winfo_children():
             widget.destroy()
             
-        threading.Thread(target=self.run_analysis, args=(ticker, period, ind_name), daemon=True).start()
+        threading.Thread(target=self.run_analysis, args=(ticker, period, base_strategy), daemon=True).start()
         
-    def run_analysis(self, ticker, period, ind_name):
+    def run_analysis(self, ticker, period, base_strategy):
         from data_loader import get_yf_ticker
         try:
             stock = get_yf_ticker(ticker)
@@ -184,25 +196,19 @@ class App(ctk.CTk):
             return
             
         try:
-            if ind_name == "自創 DMPI":
-                from strategy import calculate_dmpi
-                df = calculate_dmpi(df)
-            elif ind_name == "RSI":
-                from strategy import calculate_rsi
-                df = calculate_rsi(df)
-            elif ind_name == "MACD":
-                from strategy import calculate_macd
-                df = calculate_macd(df)
-                
-            from strategy import generate_signals
-            df = generate_signals(df, indicator=ind_name)
+            from strategy import calculate_dmpi, calculate_rsi, calculate_macd, generate_signals
+            df = calculate_dmpi(df)
+            df = calculate_rsi(df)
+            df = calculate_macd(df)
+            # 以選擇的基準策略來產生主圖的買賣點與進行歷史回測
+            df = generate_signals(df, indicator=base_strategy)
         except Exception as e:
             self.update_status(f"計算指標發生錯誤: {e}", "#ff5555")
             return
             
         try:
-            backtest_res = run_backtest(df, indicator_name=ind_name)
-            rec = get_latest_recommendation(df, indicator_name=ind_name)
+            backtest_res = run_backtest(df, indicator_name=base_strategy)
+            recs = get_latest_recommendation(df)
         except Exception as e:
             self.update_status(f"回測引擎發生錯誤: {e}", "#ff5555")
             return
@@ -214,28 +220,30 @@ class App(ctk.CTk):
             info = {"Error": str(e)}
             financials = {}
         
-        self.after(0, self.update_ui_post_analysis, ticker, df, info, financials, backtest_res, rec, ind_name)
+        self.after(0, self.update_ui_post_analysis, ticker, df, info, financials, backtest_res, recs, base_strategy)
         
     def update_status(self, msg, color):
         self.after(0, lambda: self.status_label.configure(text=msg, text_color=color))
 
-    def update_ui_post_analysis(self, ticker, df, info, financials, backtest_res, rec, ind_name):
-        self.status_label.configure(text=f"{ticker} 分析完成！ ({ind_name} 策略)", text_color="#00ff00")
+    def update_ui_post_analysis(self, ticker, df, info, financials, backtest_res, recs, base_strategy):
+        self.status_label.configure(text=f"{ticker} 分析完成！ (三指標綜合儀表板)", text_color="#00ff00")
         
-        plot_stock_chart(self.chart_container, df, ticker, indicator_name=ind_name)
+        plot_stock_chart(self.chart_container, df, ticker)
         
-        # ==== 更新建議 ====
-        action = rec.get('action', '')
-        reason = rec.get('reason', '')
-        price = rec.get('price', '')
-        price_str = f" @ {price:.2f}" if price else ""
-        
-        sugg_color = "white"
-        if "Buy" in action: sugg_color = "#00ff00"
-        elif "Sell" in action: sugg_color = "#ff5555"
-        elif "Hold" in action: sugg_color = "orange"
-        
-        self.sugg_label.configure(text=f"最新建議: {action}{price_str}  ({reason})", text_color=sugg_color)
+        # ==== 更新三大指標建議卡片 ====
+        def update_card(lbl_act, lbl_desc, rec_data):
+            act = rec_data.get("action", "N/A")
+            lbl_act.configure(text=act)
+            lbl_desc.configure(text=rec_data.get("reason", ""))
+            
+            if "買" in act or "Add" in act: lbl_act.configure(text_color="#ff5555")
+            elif "賣" in act or "Clear" in act or "Reduce" in act or "逃意" in act or "逃命" in act: lbl_act.configure(text_color="#00ff00")
+            elif "Hold" in act: lbl_act.configure(text_color="orange")
+            else: lbl_act.configure(text_color="white")
+            
+        update_card(self.lbl_dmpi_act, self.lbl_dmpi_desc, recs.get("DMPI", {}))
+        update_card(self.lbl_rsi_act, self.lbl_rsi_desc, recs.get("RSI", {}))
+        update_card(self.lbl_macd_act, self.lbl_macd_desc, recs.get("MACD", {}))
         
         # ==== 更新基本面與財報 ====
         fund_text = f"========== 【 {ticker} 基本面摘要 】 ==========\n\n"
@@ -260,7 +268,9 @@ class App(ctk.CTk):
         self.fund_textbox.insert("0.0", fund_text)
         
         # ==== 更新回測結果 ====
-        bt_text = f"========== 【 {ind_name} 策略 回測報告 ({ticker}) 】 ==========\n\n"
+        bt_text = f"========== 【 {ticker} 策略歷史回測報告 】 ==========\n\n"
+        bt_text += f"(註：目前歷史回測圖表特徵點與明細以剛才選擇的「{base_strategy}」為主核心驗證)\n"
+        bt_text += "-"*50 + "\n"
         bt_text += f"> 初始資金: {backtest_res['initial_capital']:,.2f}\n"
         bt_text += f"> 最終資金: {backtest_res['final_capital']:,.2f}\n"
         bt_text += "-"*50 + "\n"
