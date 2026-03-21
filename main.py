@@ -25,20 +25,23 @@ class HelpWindow(ctk.CTkToplevel):
         textbox.pack(fill="both", expand=True, padx=25, pady=(0, 25))
         
         desc = (
-            "本系統整合了三套強大的動能與趨勢指標，由上而下為您進行全方位的盤勢解析：\n\n"
-            "一、自創 DMPI (動態市場壓力指數) 🚀\n"
-            "結合價格壓力、成交流量與 ATR 波動懲罰的客製化指標。\n"
-            "• 買進：由下往上突破零軸 (空翻多)\n"
-            "• 賣出：由上往下跌破零軸 (多翻空)\n\n"
-            "二、RSI (相對強弱指標) 📊\n"
-            "衡量近期價格變動幅度，評估資產是否超買或超賣。\n"
-            "• 買進：從低於 30 (超賣區) 反彈向上穿越 30\n"
-            "• 賣出：從高於 70 (超買區) 回落向下穿越 70\n\n"
-            "三、MACD (平滑異同移動平均線) 📈\n"
-            "捕捉中長期的股價趨勢與波段動能變化。\n"
+            "本系統整合了四套強大的動能與趨勢指標，全方位解析盤勢：\n\n"
+            "一、綜合共振 (Tri-Core Resonance) 👑\n"
+            "完美融合四大情境的高階動態策略：\n"
+            "• MACD 大(多頭)：DMPI 買進放低(-10)，賣出放高(+10)\n"
+            "• MACD 小(空頭)：DMPI 買進放高(+10)，賣出放低(-10)\n"
+            "• MACD 持平(盤整)：切換為 RSI 測定進出 (30買/70賣)\n\n"
+            "二、自創 DMPI (動態市場壓力指數) 🚀\n"
+            "結合價格壓力、成交流量與 ATR 波動。\n"
+            "• 買進：突破零軸 / 賣出：跌破零軸\n\n"
+            "三、RSI (相對強弱指標) 📊\n"
+            "衡量近期價位強弱。\n"
+            "• 買進：向上穿越 30 / 賣出：向下穿越 70\n\n"
+            "四、MACD (平滑異同移動平均線) 📈\n"
+            "捕捉中長線趨勢與波段。\n"
             "• 買進：柱狀圖出水面由負轉正 (黃金交叉)\n"
             "• 賣出：柱狀圖下沉由正轉負 (死亡交叉)\n\n"
-            "綜合參考三個指標的共振訊號，勝率與穩定度將大幅提升！"
+            "勝率與穩定度完美融合，是最高階的實戰戰法！"
         )
         textbox.insert("0.0", desc)
         textbox.configure(state="disabled")
@@ -50,6 +53,10 @@ class App(ctk.CTk):
         self.title("進階股票分析與多指標回測系統")
         self.geometry("1400x900")
         self.configure(fg_color="#121212")
+        
+        # 實例化 AI 推論引擎
+        from ml_engine import MLExpertEngine
+        self.ai_engine = MLExpertEngine()
         
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0)  
@@ -76,8 +83,8 @@ class App(ctk.CTk):
         self.strategy_label = ctk.CTkLabel(self.top_frame, text="主圖與回測基準:", font=("Microsoft JhengHei", 15, "bold"), text_color="#00bfff")
         self.strategy_label.pack(side="left", padx=10)
         
-        self.strategy_seg = ctk.CTkSegmentedButton(self.top_frame, values=["自創 DMPI", "RSI", "MACD"], font=("Microsoft JhengHei", 14), selected_color="#0052cc", selected_hover_color="#0066ff")
-        self.strategy_seg.set("自創 DMPI")
+        self.strategy_seg = ctk.CTkSegmentedButton(self.top_frame, values=["自創 DMPI", "RSI", "MACD", "綜合共振"], font=("Microsoft JhengHei", 14), selected_color="#0052cc", selected_hover_color="#0066ff")
+        self.strategy_seg.set("綜合共振")
         self.strategy_seg.pack(side="left", padx=5)
         
         self.help_btn = ctk.CTkButton(self.top_frame, text="指標介紹 ❓", width=120, height=38, font=("Microsoft JhengHei", 15, "bold"), command=self.show_help, fg_color="#333333", hover_color="#555555", corner_radius=8)
@@ -92,11 +99,21 @@ class App(ctk.CTk):
         # --- Suggestion Dashboard (Grid Layout) ---
         self.sugg_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.sugg_frame.grid(row=2, column=0, padx=25, pady=(0, 25), sticky="ew")
-        self.sugg_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        self.sugg_frame.grid_columnconfigure((0, 1), weight=1)
+        
+        # AI 模型大腦 Card (Span 2 columns)
+        self.card_ai = ctk.CTkFrame(self.sugg_frame, fg_color="#111111", corner_radius=15, border_width=2, border_color="#ffcc00")
+        self.card_ai.grid(row=0, column=0, columnspan=2, padx=10, pady=(5, 15), sticky="nsew")
+        self.lbl_ai_title = ctk.CTkLabel(self.card_ai, text="🧠 深度強化學習大腦 (DRL-LSTM) 預測結果", font=("Microsoft JhengHei", 18, "bold"), text_color="#ffcc00")
+        self.lbl_ai_title.pack(pady=(15, 5))
+        self.lbl_ai_act = ctk.CTkLabel(self.card_ai, text="等待分析或模型未載入", font=("Microsoft JhengHei", 28, "bold"))
+        self.lbl_ai_act.pack(pady=5)
+        self.lbl_ai_desc = ctk.CTkLabel(self.card_ai, text=self.ai_engine.error_msg if not self.ai_engine.is_loaded else "即時處理歷史數據推論中...", font=("Microsoft JhengHei", 14), text_color="gray", wraplength=800)
+        self.lbl_ai_desc.pack(pady=(5, 15), padx=20)
         
         # DMPI Card
         self.card_dmpi = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=15, border_width=1, border_color="#333333")
-        self.card_dmpi.grid(row=0, column=0, padx=(0, 10), sticky="nsew")
+        self.card_dmpi.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
         self.lbl_dmpi_title = ctk.CTkLabel(self.card_dmpi, text="自創 DMPI 動能", font=("Microsoft JhengHei", 16, "bold"), text_color="#00bfff")
         self.lbl_dmpi_title.pack(pady=(15, 5))
         self.lbl_dmpi_act = ctk.CTkLabel(self.card_dmpi, text="等待分析", font=("Microsoft JhengHei", 22, "bold"))
@@ -106,7 +123,7 @@ class App(ctk.CTk):
         
         # RSI Card
         self.card_rsi = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=15, border_width=1, border_color="#333333")
-        self.card_rsi.grid(row=0, column=1, padx=5, sticky="nsew")
+        self.card_rsi.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
         self.lbl_rsi_title = ctk.CTkLabel(self.card_rsi, text="RSI (14) 相對強弱", font=("Microsoft JhengHei", 16, "bold"), text_color="#c266ff")
         self.lbl_rsi_title.pack(pady=(15, 5))
         self.lbl_rsi_act = ctk.CTkLabel(self.card_rsi, text="等待分析", font=("Microsoft JhengHei", 22, "bold"))
@@ -116,13 +133,23 @@ class App(ctk.CTk):
         
         # MACD Card
         self.card_macd = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=15, border_width=1, border_color="#333333")
-        self.card_macd.grid(row=0, column=2, padx=(10, 0), sticky="nsew")
+        self.card_macd.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
         self.lbl_macd_title = ctk.CTkLabel(self.card_macd, text="MACD 趨勢跟蹤", font=("Microsoft JhengHei", 16, "bold"), text_color="#ff9900")
         self.lbl_macd_title.pack(pady=(15, 5))
         self.lbl_macd_act = ctk.CTkLabel(self.card_macd, text="等待分析", font=("Microsoft JhengHei", 22, "bold"))
         self.lbl_macd_act.pack(pady=5)
         self.lbl_macd_desc = ctk.CTkLabel(self.card_macd, text="請輸入股票代號並開始分析", font=("Microsoft JhengHei", 13), text_color="gray", wraplength=350)
         self.lbl_macd_desc.pack(pady=(5, 15), padx=10)
+        
+        # 綜合共振 Card
+        self.card_comp = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=15, border_width=1, border_color="#333333")
+        self.card_comp.grid(row=2, column=1, padx=10, pady=5, sticky="nsew")
+        self.lbl_comp_title = ctk.CTkLabel(self.card_comp, text="👑 綜合共振系統", font=("Microsoft JhengHei", 16, "bold"), text_color="#ffff00")
+        self.lbl_comp_title.pack(pady=(15, 5))
+        self.lbl_comp_act = ctk.CTkLabel(self.card_comp, text="等待分析", font=("Microsoft JhengHei", 22, "bold"))
+        self.lbl_comp_act.pack(pady=5)
+        self.lbl_comp_desc = ctk.CTkLabel(self.card_comp, text="請輸入股票代號並開始分析", font=("Microsoft JhengHei", 13), text_color="gray", wraplength=350)
+        self.lbl_comp_desc.pack(pady=(5, 15), padx=10)
         
         # --- Main Tabview ---
         self.tabview = ctk.CTkTabview(self, fg_color="#1e1e1e", segmented_button_selected_color="#0052cc", segmented_button_selected_hover_color="#0066ff", text_color="white", corner_radius=15)
@@ -170,9 +197,11 @@ class App(ctk.CTk):
         
         self.status_label.configure(text=f"正在分析 {ticker} ...這可能需要幾十秒鐘", text_color="yellow")
         
+        self.lbl_ai_act.configure(text="AI 擷取特徵推論中...", text_color="white")
         self.lbl_dmpi_act.configure(text="分析處理中...", text_color="white")
         self.lbl_rsi_act.configure(text="分析處理中...", text_color="white")
         self.lbl_macd_act.configure(text="分析處理中...", text_color="white")
+        self.lbl_comp_act.configure(text="分析處理中...", text_color="white")
         
         self.fund_textbox.delete("0.0", "end")
         self.backtest_textbox.delete("0.0", "end")
@@ -214,21 +243,34 @@ class App(ctk.CTk):
             return
             
         try:
+            ai_recs = self.ai_engine.predict_action(df)
+        except Exception as e:
+            ai_recs = {"action": "AI 離線", "reason": str(e)}
+            
+        try:
             info = fetch_stock_info(ticker)
             financials = fetch_financials(ticker)
         except Exception as e:
             info = {"Error": str(e)}
             financials = {}
         
-        self.after(0, self.update_ui_post_analysis, ticker, df, info, financials, backtest_res, recs, base_strategy)
+        self.after(0, self.update_ui_post_analysis, ticker, df, info, financials, backtest_res, recs, base_strategy, ai_recs)
         
     def update_status(self, msg, color):
         self.after(0, lambda: self.status_label.configure(text=msg, text_color=color))
 
-    def update_ui_post_analysis(self, ticker, df, info, financials, backtest_res, recs, base_strategy):
-        self.status_label.configure(text=f"{ticker} 分析完成！ (三指標綜合儀表板)", text_color="#00ff00")
+    def update_ui_post_analysis(self, ticker, df, info, financials, backtest_res, recs, base_strategy, ai_recs):
+        self.status_label.configure(text=f"{ticker} 分析完成！ (結合 AI DRL 強化學習與多指標大腦)", text_color="#00ff00")
         
         plot_stock_chart(self.chart_container, df, ticker)
+        
+        # ==== 更新 AI 大腦卡片 ====
+        ai_act = ai_recs.get("action", "N/A")
+        self.lbl_ai_act.configure(text=ai_act)
+        self.lbl_ai_desc.configure(text=ai_recs.get("reason", ""))
+        if "買" in ai_act or "Long" in ai_act: self.lbl_ai_act.configure(text_color="#ff5555")
+        elif "賣" in ai_act or "Short" in ai_act: self.lbl_ai_act.configure(text_color="#00ff00")
+        else: self.lbl_ai_act.configure(text_color="orange")
         
         # ==== 更新三大指標建議卡片 ====
         def update_card(lbl_act, lbl_desc, rec_data):
@@ -244,6 +286,7 @@ class App(ctk.CTk):
         update_card(self.lbl_dmpi_act, self.lbl_dmpi_desc, recs.get("DMPI", {}))
         update_card(self.lbl_rsi_act, self.lbl_rsi_desc, recs.get("RSI", {}))
         update_card(self.lbl_macd_act, self.lbl_macd_desc, recs.get("MACD", {}))
+        update_card(self.lbl_comp_act, self.lbl_comp_desc, recs.get("綜合共振", {}))
         
         # ==== 更新基本面與財報 ====
         fund_text = f"========== 【 {ticker} 基本面摘要 】 ==========\n\n"

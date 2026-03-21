@@ -1,0 +1,52 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.env
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# VSCode / IDEs
+.vscode/
+.idea/
+*.swp
+
+# Mac OS
+.DS_Store
+
+# =========================================
+# Machine Learning & Data files (防止巨大檔案塞爆 GitHub)
+# =========================================
+# 模型權重檔案 (PyTorch, TensorFlow, etc.)
+*.pt
+*.pth
+*.h5
+*.hdf5
+*.keras
+*.ckpt
+*.pb
+*.onnx
+*.pkl
+
+# 數據集與資料庫檔案
+*.npy
+*.npz
+*.csv
+*.tsv
+*.xlsx
+*.db
+*.sqlite3
+
+# 機器學習暫存/儲存資料夾 (建議建立這些資料夾來放東西，自動被Git忽略)
+models/
+data/
+logs/
+checkpoints/
+runs/
+tensorboard/

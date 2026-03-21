@@ -5,3 +5,5 @@ curl_cffi
 numpy
 matplotlib
 mplfinance
+stable-baselines3
+gymnasium

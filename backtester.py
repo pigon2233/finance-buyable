@@ -151,4 +151,19 @@ def get_latest_recommendation(df: pd.DataFrame) -> dict:
     else:
         recs["MACD"] = {"action": "順勢空手 (Wait)", "reason": "MACD 處於綠柱空方區，隨波逐流"}
 
+    # --- 綜合共振 分析 ---
+    try:
+        from strategy import generate_signals
+        df_comp = generate_signals(df.copy(), indicator="綜合共振")
+        comp_sig = df_comp['Signal'].iloc[-1]
+        
+        if comp_sig == 1:
+            recs["綜合共振"] = {"action": "強勢共振買進 (Buy)", "reason": "綜合共振四大情境滿足，發出買進訊號"}
+        elif comp_sig == -1:
+            recs["綜合共振"] = {"action": "強勢共振清倉 (Clear)", "reason": "綜合共振四大情境警示，發出賣出訊號"}
+        else:
+            recs["綜合共振"] = {"action": "等待時機 (Wait/Hold)", "reason": "綜合系統未達關鍵轉折點，建議觀望"}
+    except Exception as e:
+        recs["綜合共振"] = {"action": "N/A", "reason": f"綜合運算錯誤 {e}"}
+
     return recs

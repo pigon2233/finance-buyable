@@ -95,6 +95,52 @@ def generate_signals(df: pd.DataFrame, indicator: str = "自創 DMPI") -> pd.Dat
         buy_condition = (df['Prev_Hist'] <= 0) & (df['MACD_Hist'] > 0)
         # MACD 柱狀圖由正轉負 (死亡交叉) 視為賣出
         sell_condition = (df['Prev_Hist'] >= 0) & (df['MACD_Hist'] < 0)
+
+    elif indicator == "綜合共振":
+        if 'MACD_Hist' in df.columns and 'DMPI' in df.columns and 'RSI' in df.columns:
+            buy_sig = pd.Series(False, index=df.index)
+            sell_sig = pd.Series(False, index=df.index)
+            
+            current_pos = 0
+            for i in range(1, len(df)):
+                dmpi = df['DMPI'].iloc[i]
+                rsi = df['RSI'].iloc[i]
+                macd = df['MACD'].iloc[i]
+                hist = df['MACD_Hist'].iloc[i]
+                
+                # 簡單明確的區間狀態機制，不怕從大跳小平
+                if macd > 0 and hist >= 0:
+                    regime = 'LARGE'
+                elif macd < 0 and hist <= 0:
+                    regime = 'SMALL'
+                else:
+                    regime = 'FLAT'
+                    
+                next_pos = current_pos
+                
+                # 連續區間門檻(Schmitt Trigger) - 徹底解決「狀態切換時交叉遺漏」以及「過早出場」問題
+                if regime == 'LARGE':
+                    # 多頭：買進放低(>-5即可買)、賣出防守放寬(跌破-15才賣，死抱)
+                    if dmpi > -5: next_pos = 1
+                    elif dmpi < -15: next_pos = 0
+                elif regime == 'SMALL':
+                    # 空頭：買進極嚴(>15才買)、賣出警戒極高(跌破+5快逃)
+                    if dmpi > 15: next_pos = 1
+                    elif dmpi < 5: next_pos = 0
+                else:
+                    # 盤整：RSI 突破 55 轉強買進，跌破 45 轉弱賣出
+                    if rsi > 55: next_pos = 1
+                    elif rsi < 45: next_pos = 0
+                    
+                if next_pos == 1 and current_pos == 0:
+                    buy_sig.iloc[i] = True
+                elif next_pos == 0 and current_pos == 1:
+                    sell_sig.iloc[i] = True
+                    
+                current_pos = next_pos
+                
+            buy_condition = buy_sig
+            sell_condition = sell_sig
         
     df.loc[buy_condition, 'Signal'] = 1
     df.loc[sell_condition, 'Signal'] = -1
