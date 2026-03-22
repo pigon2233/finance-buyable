@@ -44,7 +44,7 @@ ENV/
 *.sqlite3
 
 # 機器學習暫存/儲存資料夾 (建議建立這些資料夾來放東西，自動被Git忽略)
-models/
+/models/
 data/
 logs/
 checkpoints/
