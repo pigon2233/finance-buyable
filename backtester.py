@@ -37,8 +37,16 @@ def run_backtest(df: pd.DataFrame, initial_capital=100000.0, indicator_name="自
         else:  # 綜合共振
             dmpi = float(row.get('DMPI', 0))
             rsi_v = float(row.get('RSI', 0))
+            macd = float(row.get('MACD', 0))
             macd_h = float(row.get('MACD_Hist', 0))
-            regime = 'LARGE' if macd_h > 0.5 else ('SMALL' if macd_h < -0.5 else 'FLAT')
+            
+            if macd > 0 and macd_h >= 0:
+                regime = 'LARGE'
+            elif macd < 0 and macd_h <= 0:
+                regime = 'SMALL'
+            else:
+                regime = 'FLAT'
+
             if regime == 'FLAT':
                 label = "超跌<30，回歸買進" if is_buy else "超買>70，回歸賣出"
                 return f"[FLAT盤整] RSI={rsi_v:.1f} » {label}"

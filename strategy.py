@@ -31,8 +31,8 @@ def calculate_dmpi(df: pd.DataFrame, window=5, vol_window=20, atr_window=14) -> 
     # 將其放大到合理的波動區間 (約 -50 到 50 之間)
     df['Raw_DMPI'] = (df['Net_Pressure'] * df['Volume_Factor']) / df['VP']
     
-    # 5. 平滑化
-    df['DMPI'] = df['Raw_DMPI'].rolling(window=window).mean()
+    # 5. 平滑化 (改為 2 天，兼顧靈敏度與濾雜訊)
+    df['DMPI'] = df['Raw_DMPI'].rolling(window=2).mean()
     
     return df
 
@@ -120,14 +120,14 @@ def generate_signals(df: pd.DataFrame, indicator: str = "自創 DMPI") -> pd.Dat
                 
                 # 依據使用者指正的區間鎖定交易法 (通道策略)
                 if regime == 'LARGE':
-                    # 多頭：維持在 -5 到 15 之間抱緊多單。>=15 衝高停利，<=-5 跌破防守線停損。
-                    if dmpi >= 15: next_pos = 0
-                    elif dmpi <= -5: next_pos = 0
+                    # 多頭：維持在 -15 到 27 之間抱緊多單。>=27 衝高停利，<=-15 跌破防守線停損。
+                    if dmpi >= 27: next_pos = 0
+                    elif dmpi <= -15: next_pos = 0
                     else: next_pos = 1
                 elif regime == 'SMALL':
-                    # 空頭：下修通道，維持在 -15 到 5 之間搶短多。>=5 反彈無力停利，<=-15 破底停損。
+                    # 空頭：下修通道，維持在 -40 到 5 之間搶短多。>=5 反彈無力停利，<=-40 破底停損。
                     if dmpi >= 5: next_pos = 0
-                    elif dmpi <= -15: next_pos = 0
+                    elif dmpi <= -40: next_pos = 0
                     else: next_pos = 1
                 else:
                     # 盤整：RSI 均值回歸 (超跌 < 30 買進，超買 > 70 賣出)
