@@ -3,10 +3,15 @@ import os
 import pandas as pd
 import numpy as np
 
-# 動態加入使用者的訓練環境路徑，以便 PPO.load 能正確解開自定義的 LSTMFeatureExtractor 類別
-TRAIN_DIR = r"e:\coding\股票策略機器學習\finance stratigy learning"
-if TRAIN_DIR not in sys.path:
-    sys.path.append(TRAIN_DIR)
+# ================================================================
+# 動態取得 pretrained_brain/ 的絕對路徑（相對於本檔案的位置）
+# 這樣不管專案放在哪台電腦、哪個目錄，都能正確找到模型。
+# ================================================================
+_HERE = os.path.dirname(os.path.abspath(__file__))
+BRAIN_DIR = os.path.join(_HERE, "pretrained_brain")
+
+if BRAIN_DIR not in sys.path:
+    sys.path.insert(0, BRAIN_DIR)
 
 try:
     from stable_baselines3 import PPO
@@ -16,31 +21,58 @@ except ImportError:
 
 class MLExpertEngine:
     """
-    載入外部專案訓練完畢的「深度強化學習 (DRL)模型」，實現儀表板推論介接。
+    載入 pretrained_brain/ 裡的「深度強化學習 (DRL)模型」，實現儀表板推論介接。
     """
-    def __init__(self, model_path=r"e:\coding\股票策略機器學習\finance stratigy learning\models\saved\ppo_trading_lstm.zip"):
+    def __init__(self, model_path: str = ""):
+        # 預設使用 pretrained_brain/ 資料夾的相對路徑
+        if not model_path:
+            model_path = os.path.join(BRAIN_DIR, "ppo_trading_lstm.zip")
         self.model_path = model_path
         self.model = None
         self.is_loaded = False
         self.error_msg = ""
         
         self._load_model()
+
         
     def _load_model(self):
         if not SB3_AVAILABLE:
             self.error_msg = "尚未安裝 stable_baselines3，無法啟動 AI 引擎。"
+            print(f"[ML Engine] SB3 not available: {self.error_msg}")
             return
             
         if not os.path.exists(self.model_path):
             self.error_msg = f"找不到訓練好的權重檔：{self.model_path}"
+            print(f"[ML Engine] Model file not found: {self.model_path}")
             return
             
         try:
-            # PPO.load 會自動利用 sys.path 去找自定義的 LSTMFeatureExtractor
-            self.model = PPO.load(self.model_path)
+            print(f"[ML Engine] Loading model from: {self.model_path}")
+            # 先嘗試匯入 LSTMFeatureExtractor，確保類別可被 cloudpickle 找到
+            from models.feature_extractor import LSTMFeatureExtractor
+            
+            # 用 custom_objects 明確覆蓋架構參數（從 RuntimeError 反推真實訓練架構）
+            # 反推結果：hidden_size=128, features_dim=64, num_layers=1, input_features=10
+            self.model = PPO.load(
+                self.model_path,
+                custom_objects={
+                    "policy_kwargs": {
+                        "features_extractor_class": LSTMFeatureExtractor,
+                        "features_extractor_kwargs": {
+                            "features_dim": 64,
+                            "hidden_size": 128,
+                            "num_layers": 1,
+                        },
+                    }
+                }
+            )
             self.is_loaded = True
+            print("[ML Engine] Model loaded successfully!")
         except Exception as e:
-            self.error_msg = f"AI 權重載入失敗：{e}"
+            import traceback
+            tb = traceback.format_exc()
+            print(f"[ML Engine] LOAD FAILED:\n{tb}")
+            self.error_msg = f"AI 權重載入失敗：{type(e).__name__}: {e}"
             
     def predict_action(self, df: pd.DataFrame, window_size=20) -> dict:
         """
@@ -83,12 +115,14 @@ class MLExpertEngine:
             # =========================================================
             # 2. 補齊強化學習環境 (trading_env.py) 的額外維度狀態
             # =========================================================
-            extra = np.zeros((window_size, 2), dtype=np.float32)
-            # 假設給定 AI 最中立的初始觀點來作預測：目前空手 (0)，未實現損益 (0%)
+            # 模型期望 10 維輸入：7個技術特徵 + 3個環境狀態（空手/持倉/損益）
+            extra = np.zeros((window_size, 3), dtype=np.float32)
+            # 給 AI 最中立的初始觀點：目前空手(0)，未實現損益(0%)，持倉天數(0)
             extra[:, 0] = 0.0
             extra[:, 1] = 0.0
+            extra[:, 2] = 0.0
             
-            # 總維度與訓練時完美吻合 -> Shape: (20, 9)
+            # 總維度與訓練時完美吻合 -> Shape: (20, 10)
             obs = np.hstack([recent_obs, extra]).astype(np.float32)
             
             # =========================================================
@@ -106,7 +140,10 @@ class MLExpertEngine:
                 return {"action": "☕ AI 建議觀望 (Flat)", "reason": "LSTM 掃描無明確套利空間，建議保持空手。"}
                 
         except Exception as e:
-            return {"action": "推論異常", "reason": f"擷取特徵時發生錯誤：{e}"}
+            import traceback
+            tb = traceback.format_exc()
+            print(f"[ML Engine ERROR]\n{tb}")
+            return {"action": "推論異常", "reason": f"錯誤: {type(e).__name__}: {e}"}
 
 if __name__ == "__main__":
     # 基本測試腳本

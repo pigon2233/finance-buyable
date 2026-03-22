@@ -118,19 +118,21 @@ def generate_signals(df: pd.DataFrame, indicator: str = "自創 DMPI") -> pd.Dat
                     
                 next_pos = current_pos
                 
-                # 連續區間門檻(Schmitt Trigger) - 徹底解決「狀態切換時交叉遺漏」以及「過早出場」問題
+                # 依據使用者指正的區間鎖定交易法 (通道策略)
                 if regime == 'LARGE':
-                    # 多頭：買進放低(>-5即可買)、賣出防守放寬(跌破-15才賣，死抱)
-                    if dmpi > -5: next_pos = 1
-                    elif dmpi < -15: next_pos = 0
+                    # 多頭：維持在 -5 到 15 之間抱緊多單。>=15 衝高停利，<=-5 跌破防守線停損。
+                    if dmpi >= 15: next_pos = 0
+                    elif dmpi <= -5: next_pos = 0
+                    else: next_pos = 1
                 elif regime == 'SMALL':
-                    # 空頭：買進極嚴(>15才買)、賣出警戒極高(跌破+5快逃)
-                    if dmpi > 15: next_pos = 1
-                    elif dmpi < 5: next_pos = 0
+                    # 空頭：下修通道，維持在 -15 到 5 之間搶短多。>=5 反彈無力停利，<=-15 破底停損。
+                    if dmpi >= 5: next_pos = 0
+                    elif dmpi <= -15: next_pos = 0
+                    else: next_pos = 1
                 else:
-                    # 盤整：RSI 突破 55 轉強買進，跌破 45 轉弱賣出
-                    if rsi > 55: next_pos = 1
-                    elif rsi < 45: next_pos = 0
+                    # 盤整：RSI 均值回歸 (超跌 < 30 買進，超買 > 70 賣出)
+                    if rsi < 30: next_pos = 1
+                    elif rsi > 70: next_pos = 0
                     
                 if next_pos == 1 and current_pos == 0:
                     buy_sig.iloc[i] = True

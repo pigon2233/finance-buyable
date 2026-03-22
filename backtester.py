@@ -19,24 +19,52 @@ def run_backtest(df: pd.DataFrame, initial_capital=100000.0, indicator_name="自
     elif indicator_name == "MACD": ind_col = 'MACD_Hist'
     else: ind_col = None
 
+    def build_reason(row, action_type: str) -> str:
+        """ 根據當前指標數值生成一行可讀的交易理由。 """
+        is_buy = (action_type == 'Buy')
+        if indicator_name == "自創 DMPI":
+            v = float(row.get('DMPI', 0))
+            label = "突破零軸，動能正向" if is_buy else "跌破零軸，動能轉負"
+            return f"DMPI = {v:.2f} » {label}"
+        elif indicator_name == "RSI":
+            v = float(row.get('RSI', 0))
+            label = "超跌區 (<30)，買進訊號" if is_buy else "超買區 (>70)，賣出訊號"
+            return f"RSI = {v:.1f} » {label}"
+        elif indicator_name == "MACD":
+            v = float(row.get('MACD_Hist', 0))
+            label = "柱狀由負轉正 (黃金交叉)" if is_buy else "柱狀由正轉負 (死亡交叉)"
+            return f"MACD柱 = {v:.4f} » {label}"
+        else:  # 綜合共振
+            dmpi = float(row.get('DMPI', 0))
+            rsi_v = float(row.get('RSI', 0))
+            macd_h = float(row.get('MACD_Hist', 0))
+            regime = 'LARGE' if macd_h > 0.5 else ('SMALL' if macd_h < -0.5 else 'FLAT')
+            if regime == 'FLAT':
+                label = "超跌<30，回歸買進" if is_buy else "超買>70，回歸賣出"
+                return f"[FLAT盤整] RSI={rsi_v:.1f} » {label}"
+            else:
+                tag = "LARGE多頭" if regime == 'LARGE' else "SMALL空頭"
+                label = "入通道(動能健康)買進" if is_buy else "離開通道(過熱/破線)賣出"
+                return f"[{tag}] DMPI={dmpi:.2f} » {label}"
+
     
     for date, row in df.iterrows():
         signal = row.get('Signal', 0)
-        close_price = row['Close']
+        close_price = float(row['Close'])
         
         # 買進
         if signal == 1 and shares == 0:
             shares = capital / close_price
             capital = 0
             buy_price = close_price
-            trades.append({'Date': date, 'Type': 'Buy', 'Price': close_price})
+            trades.append({'Date': date, 'Type': 'Buy', 'Price': close_price, 'Reason': build_reason(row, 'Buy')})
             
         # 賣出
         elif signal == -1 and shares > 0:
             capital = shares * close_price
             shares = 0
             profit_pct = (close_price - buy_price) / buy_price * 100
-            trades.append({'Date': date, 'Type': 'Sell', 'Price': close_price, 'Profit_%': profit_pct})
+            trades.append({'Date': date, 'Type': 'Sell', 'Price': close_price, 'Profit_%': profit_pct, 'Reason': build_reason(row, 'Sell')})
             
         # 每日結算總價值
         current_value = capital + (shares * close_price)
@@ -50,10 +78,10 @@ def run_backtest(df: pd.DataFrame, initial_capital=100000.0, indicator_name="自
         
     # 最後一天強制平倉計算總價值
     if shares > 0:
-        capital = shares * df.iloc[-1]['Close']
+        capital = shares * float(df.iloc[-1]['Close'])
         shares = 0
-        profit_pct = (df.iloc[-1]['Close'] - buy_price) / buy_price * 100
-        trades.append({'Date': df.index[-1], 'Type': 'Sell (Auto Close)', 'Price': df.iloc[-1]['Close'], 'Profit_%': profit_pct})
+        profit_pct = (float(df.iloc[-1]['Close']) - buy_price) / buy_price * 100
+        trades.append({'Date': df.index[-1], 'Type': 'Sell (Auto Close)', 'Price': float(df.iloc[-1]['Close']), 'Profit_%': profit_pct, 'Reason': '到期強制平倉'})
         
     final_capital = capital
     total_return = (final_capital - initial_capital) / initial_capital * 100
@@ -158,11 +186,11 @@ def get_latest_recommendation(df: pd.DataFrame) -> dict:
         comp_sig = df_comp['Signal'].iloc[-1]
         
         if comp_sig == 1:
-            recs["綜合共振"] = {"action": "強勢共振買進 (Buy)", "reason": "綜合共振四大情境滿足，發出買進訊號"}
+            recs["綜合共振"] = {"action": "強勢共振買進 (Buy)", "reason": "綜合共振四大情境滿足，死抱突破趨勢發出買進訊號"}
         elif comp_sig == -1:
-            recs["綜合共振"] = {"action": "強勢共振清倉 (Clear)", "reason": "綜合共振四大情境警示，發出賣出訊號"}
+            recs["綜合共振"] = {"action": "動能衰退清倉 (Clear)", "reason": "綜合共振四大情境警示破底，發出清倉賣出訊號"}
         else:
-            recs["綜合共振"] = {"action": "等待時機 (Wait/Hold)", "reason": "綜合系統未達關鍵轉折點，建議觀望"}
+            recs["綜合共振"] = {"action": "等待時機 (Wait/Hold)", "reason": "綜合系統未達關鍵轉折點，若持有中則續抱，若空手則觀望"}
     except Exception as e:
         recs["綜合共振"] = {"action": "N/A", "reason": f"綜合運算錯誤 {e}"}
 

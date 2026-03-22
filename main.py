@@ -27,10 +27,10 @@ class HelpWindow(ctk.CTkToplevel):
         desc = (
             "本系統整合了四套強大的動能與趨勢指標，全方位解析盤勢：\n\n"
             "一、綜合共振 (Tri-Core Resonance) 👑\n"
-            "完美融合四大情境的高階動態策略：\n"
-            "• MACD 大(多頭)：DMPI 買進放低(-10)，賣出放高(+10)\n"
-            "• MACD 小(空頭)：DMPI 買進放高(+10)，賣出放低(-10)\n"
-            "• MACD 持平(盤整)：切換為 RSI 測定進出 (30買/70賣)\n\n"
+            "完美融合四大情境的通道動態策略：\n"
+            "• MACD 大(多頭)：DMPI 保持在 -5 ~ +15 之間持續做多 (過熱停利/破線停損)\n"
+            "• MACD 小(空頭)：DMPI 保持在 -15 ~ +5 之間搶反彈多 (過熱停利/破線停損)\n"
+            "• MACD 持平(盤整)：切換為 RSI 測定進出 (超跌<40買 / 超買>60賣)\n\n"
             "二、自創 DMPI (動態市場壓力指數) 🚀\n"
             "結合價格壓力、成交流量與 ATR 波動。\n"
             "• 買進：突破零軸 / 賣出：跌破零軸\n\n"
@@ -99,57 +99,57 @@ class App(ctk.CTk):
         # --- Suggestion Dashboard (Grid Layout) ---
         self.sugg_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.sugg_frame.grid(row=2, column=0, padx=25, pady=(0, 25), sticky="ew")
-        self.sugg_frame.grid_columnconfigure((0, 1), weight=1)
+        self.sugg_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
         
-        # AI 模型大腦 Card (Span 2 columns)
-        self.card_ai = ctk.CTkFrame(self.sugg_frame, fg_color="#111111", corner_radius=15, border_width=2, border_color="#ffcc00")
-        self.card_ai.grid(row=0, column=0, columnspan=2, padx=10, pady=(5, 15), sticky="nsew")
-        self.lbl_ai_title = ctk.CTkLabel(self.card_ai, text="🧠 深度強化學習大腦 (DRL-LSTM) 預測結果", font=("Microsoft JhengHei", 18, "bold"), text_color="#ffcc00")
-        self.lbl_ai_title.pack(pady=(15, 5))
-        self.lbl_ai_act = ctk.CTkLabel(self.card_ai, text="等待分析或模型未載入", font=("Microsoft JhengHei", 28, "bold"))
-        self.lbl_ai_act.pack(pady=5)
-        self.lbl_ai_desc = ctk.CTkLabel(self.card_ai, text=self.ai_engine.error_msg if not self.ai_engine.is_loaded else "即時處理歷史數據推論中...", font=("Microsoft JhengHei", 14), text_color="gray", wraplength=800)
-        self.lbl_ai_desc.pack(pady=(5, 15), padx=20)
+        # AI 模型大腦 Card (Span 4 columns to be wider and shorter)
+        self.card_ai = ctk.CTkFrame(self.sugg_frame, fg_color="#111111", corner_radius=12, border_width=2, border_color="#ffcc00")
+        self.card_ai.grid(row=0, column=0, columnspan=4, padx=5, pady=(2, 5), sticky="nsew")
+        self.lbl_ai_title = ctk.CTkLabel(self.card_ai, text="🧠 深度強化學習大腦 (DRL-LSTM) 預測結果", font=("Microsoft JhengHei", 14, "bold"), text_color="#ffcc00")
+        self.lbl_ai_title.pack(pady=(5, 1))
+        self.lbl_ai_act = ctk.CTkLabel(self.card_ai, text="等待分析或模型未載入", font=("Microsoft JhengHei", 18, "bold"))
+        self.lbl_ai_act.pack(pady=1)
+        self.lbl_ai_desc = ctk.CTkLabel(self.card_ai, text=self.ai_engine.error_msg if not self.ai_engine.is_loaded else "即時處理歷史數據推論中...", font=("Microsoft JhengHei", 12), text_color="gray", wraplength=800)
+        self.lbl_ai_desc.pack(pady=(1, 5), padx=20)
         
         # DMPI Card
-        self.card_dmpi = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=15, border_width=1, border_color="#333333")
-        self.card_dmpi.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
-        self.lbl_dmpi_title = ctk.CTkLabel(self.card_dmpi, text="自創 DMPI 動能", font=("Microsoft JhengHei", 16, "bold"), text_color="#00bfff")
-        self.lbl_dmpi_title.pack(pady=(15, 5))
-        self.lbl_dmpi_act = ctk.CTkLabel(self.card_dmpi, text="等待分析", font=("Microsoft JhengHei", 22, "bold"))
-        self.lbl_dmpi_act.pack(pady=5)
-        self.lbl_dmpi_desc = ctk.CTkLabel(self.card_dmpi, text="請輸入股票代號並開始分析", font=("Microsoft JhengHei", 13), text_color="gray", wraplength=350)
-        self.lbl_dmpi_desc.pack(pady=(5, 15), padx=10)
+        self.card_dmpi = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=10, border_width=1, border_color="#333333")
+        self.card_dmpi.grid(row=1, column=0, padx=5, pady=2, sticky="nsew")
+        self.lbl_dmpi_title = ctk.CTkLabel(self.card_dmpi, text="自創 DMPI 動能", font=("Microsoft JhengHei", 13, "bold"), text_color="#00bfff")
+        self.lbl_dmpi_title.pack(pady=(5, 1))
+        self.lbl_dmpi_act = ctk.CTkLabel(self.card_dmpi, text="等待分析", font=("Microsoft JhengHei", 16, "bold"))
+        self.lbl_dmpi_act.pack(pady=1)
+        self.lbl_dmpi_desc = ctk.CTkLabel(self.card_dmpi, text="請輸入股票代號", font=("Microsoft JhengHei", 11), text_color="gray", wraplength=200)
+        self.lbl_dmpi_desc.pack(pady=(1, 5), padx=5)
         
         # RSI Card
-        self.card_rsi = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=15, border_width=1, border_color="#333333")
-        self.card_rsi.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
-        self.lbl_rsi_title = ctk.CTkLabel(self.card_rsi, text="RSI (14) 相對強弱", font=("Microsoft JhengHei", 16, "bold"), text_color="#c266ff")
-        self.lbl_rsi_title.pack(pady=(15, 5))
-        self.lbl_rsi_act = ctk.CTkLabel(self.card_rsi, text="等待分析", font=("Microsoft JhengHei", 22, "bold"))
-        self.lbl_rsi_act.pack(pady=5)
-        self.lbl_rsi_desc = ctk.CTkLabel(self.card_rsi, text="請輸入股票代號並開始分析", font=("Microsoft JhengHei", 13), text_color="gray", wraplength=350)
-        self.lbl_rsi_desc.pack(pady=(5, 15), padx=10)
+        self.card_rsi = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=10, border_width=1, border_color="#333333")
+        self.card_rsi.grid(row=1, column=1, padx=5, pady=2, sticky="nsew")
+        self.lbl_rsi_title = ctk.CTkLabel(self.card_rsi, text="RSI 相對強弱", font=("Microsoft JhengHei", 13, "bold"), text_color="#c266ff")
+        self.lbl_rsi_title.pack(pady=(5, 1))
+        self.lbl_rsi_act = ctk.CTkLabel(self.card_rsi, text="等待分析", font=("Microsoft JhengHei", 16, "bold"))
+        self.lbl_rsi_act.pack(pady=1)
+        self.lbl_rsi_desc = ctk.CTkLabel(self.card_rsi, text="請輸入股票代號", font=("Microsoft JhengHei", 11), text_color="gray", wraplength=200)
+        self.lbl_rsi_desc.pack(pady=(1, 5), padx=5)
         
         # MACD Card
-        self.card_macd = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=15, border_width=1, border_color="#333333")
-        self.card_macd.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
-        self.lbl_macd_title = ctk.CTkLabel(self.card_macd, text="MACD 趨勢跟蹤", font=("Microsoft JhengHei", 16, "bold"), text_color="#ff9900")
-        self.lbl_macd_title.pack(pady=(15, 5))
-        self.lbl_macd_act = ctk.CTkLabel(self.card_macd, text="等待分析", font=("Microsoft JhengHei", 22, "bold"))
-        self.lbl_macd_act.pack(pady=5)
-        self.lbl_macd_desc = ctk.CTkLabel(self.card_macd, text="請輸入股票代號並開始分析", font=("Microsoft JhengHei", 13), text_color="gray", wraplength=350)
-        self.lbl_macd_desc.pack(pady=(5, 15), padx=10)
+        self.card_macd = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=10, border_width=1, border_color="#333333")
+        self.card_macd.grid(row=1, column=2, padx=5, pady=2, sticky="nsew")
+        self.lbl_macd_title = ctk.CTkLabel(self.card_macd, text="MACD 趨勢", font=("Microsoft JhengHei", 13, "bold"), text_color="#ff9900")
+        self.lbl_macd_title.pack(pady=(5, 1))
+        self.lbl_macd_act = ctk.CTkLabel(self.card_macd, text="等待分析", font=("Microsoft JhengHei", 16, "bold"))
+        self.lbl_macd_act.pack(pady=1)
+        self.lbl_macd_desc = ctk.CTkLabel(self.card_macd, text="請輸入股票代號", font=("Microsoft JhengHei", 11), text_color="gray", wraplength=200)
+        self.lbl_macd_desc.pack(pady=(1, 5), padx=5)
         
         # 綜合共振 Card
-        self.card_comp = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=15, border_width=1, border_color="#333333")
-        self.card_comp.grid(row=2, column=1, padx=10, pady=5, sticky="nsew")
-        self.lbl_comp_title = ctk.CTkLabel(self.card_comp, text="👑 綜合共振系統", font=("Microsoft JhengHei", 16, "bold"), text_color="#ffff00")
-        self.lbl_comp_title.pack(pady=(15, 5))
-        self.lbl_comp_act = ctk.CTkLabel(self.card_comp, text="等待分析", font=("Microsoft JhengHei", 22, "bold"))
-        self.lbl_comp_act.pack(pady=5)
-        self.lbl_comp_desc = ctk.CTkLabel(self.card_comp, text="請輸入股票代號並開始分析", font=("Microsoft JhengHei", 13), text_color="gray", wraplength=350)
-        self.lbl_comp_desc.pack(pady=(5, 15), padx=10)
+        self.card_comp = ctk.CTkFrame(self.sugg_frame, fg_color="#1a1a1a", corner_radius=10, border_width=1, border_color="#333333")
+        self.card_comp.grid(row=1, column=3, padx=5, pady=2, sticky="nsew")
+        self.lbl_comp_title = ctk.CTkLabel(self.card_comp, text="👑 綜合共振", font=("Microsoft JhengHei", 13, "bold"), text_color="#ffff00")
+        self.lbl_comp_title.pack(pady=(5, 1))
+        self.lbl_comp_act = ctk.CTkLabel(self.card_comp, text="等待分析", font=("Microsoft JhengHei", 16, "bold"))
+        self.lbl_comp_act.pack(pady=1)
+        self.lbl_comp_desc = ctk.CTkLabel(self.card_comp, text="請輸入股票代號", font=("Microsoft JhengHei", 11), text_color="gray", wraplength=200)
+        self.lbl_comp_desc.pack(pady=(1, 5), padx=5)
         
         # --- Main Tabview ---
         self.tabview = ctk.CTkTabview(self, fg_color="#1e1e1e", segmented_button_selected_color="#0052cc", segmented_button_selected_hover_color="#0066ff", text_color="white", corner_radius=15)
@@ -209,6 +209,13 @@ class App(ctk.CTk):
         for widget in self.chart_container.winfo_children():
             widget.destroy()
             
+        # [Crucial fix] Force garbage collection on the main thread.
+        # Matplotlib's NavigationToolbar creates PhotoImage objects. When the widget is destroyed,
+        # they become unreferenced. If the background thread's garbage collector sweeps them,
+        # Tkinter will throw a "main thread is not in main loop" error during PhotoImage.__del__.
+        import gc
+        gc.collect()
+            
         threading.Thread(target=self.run_analysis, args=(ticker, period, base_strategy), daemon=True).start()
         
     def run_analysis(self, ticker, period, base_strategy):
@@ -229,15 +236,30 @@ class App(ctk.CTk):
             df = calculate_dmpi(df)
             df = calculate_rsi(df)
             df = calculate_macd(df)
-            # 以選擇的基準策略來產生主圖的買賣點與進行歷史回測
-            df = generate_signals(df, indicator=base_strategy)
         except Exception as e:
             self.update_status(f"計算指標發生錯誤: {e}", "#ff5555")
             return
-            
+
+        # === 主圖下單策略：僅用於 K 線圖標註 ===
         try:
-            backtest_res = run_backtest(df, indicator_name=base_strategy)
-            recs = get_latest_recommendation(df)
+            df_main = generate_signals(df.copy(), indicator=base_strategy)
+        except Exception as e:
+            self.update_status(f"計算指標發生錯誤: {e}", "#ff5555")
+            return
+
+        # === 四大策略全部回測 ===
+        all_strategies = ["自創 DMPI", "RSI", "MACD", "綜合共振"]
+        all_backtest_results = {}
+        try:
+            for strat in all_strategies:
+                df_s = generate_signals(df.copy(), indicator=strat)
+                all_backtest_results[strat] = run_backtest(df_s, indicator_name=strat)
+        except Exception as e:
+            self.update_status(f"回測引擎發生錯誤: {e}", "#ff5555")
+            return
+
+        try:
+            recs = get_latest_recommendation(df_main)
         except Exception as e:
             self.update_status(f"回測引擎發生錯誤: {e}", "#ff5555")
             return
@@ -254,12 +276,12 @@ class App(ctk.CTk):
             info = {"Error": str(e)}
             financials = {}
         
-        self.after(0, self.update_ui_post_analysis, ticker, df, info, financials, backtest_res, recs, base_strategy, ai_recs)
+        self.after(0, self.update_ui_post_analysis, ticker, df_main, info, financials, all_backtest_results, recs, base_strategy, ai_recs)
         
     def update_status(self, msg, color):
         self.after(0, lambda: self.status_label.configure(text=msg, text_color=color))
 
-    def update_ui_post_analysis(self, ticker, df, info, financials, backtest_res, recs, base_strategy, ai_recs):
+    def update_ui_post_analysis(self, ticker, df, info, financials, all_backtest_results, recs, base_strategy, ai_recs):
         self.status_label.configure(text=f"{ticker} 分析完成！ (結合 AI DRL 強化學習與多指標大腦)", text_color="#00ff00")
         
         plot_stock_chart(self.chart_container, df, ticker)
@@ -283,7 +305,7 @@ class App(ctk.CTk):
             elif "Hold" in act: lbl_act.configure(text_color="orange")
             else: lbl_act.configure(text_color="white")
             
-        update_card(self.lbl_dmpi_act, self.lbl_dmpi_desc, recs.get("DMPI", {}))
+        update_card(self.lbl_dmpi_act, self.lbl_dmpi_desc, recs.get("自創 DMPI", recs.get("DMPI", {})))
         update_card(self.lbl_rsi_act, self.lbl_rsi_desc, recs.get("RSI", {}))
         update_card(self.lbl_macd_act, self.lbl_macd_desc, recs.get("MACD", {}))
         update_card(self.lbl_comp_act, self.lbl_comp_desc, recs.get("綜合共振", {}))
@@ -310,34 +332,40 @@ class App(ctk.CTk):
             
         self.fund_textbox.insert("0.0", fund_text)
         
-        # ==== 更新回測結果 ====
-        bt_text = f"========== 【 {ticker} 策略歷史回測報告 】 ==========\n\n"
-        bt_text += f"(註：目前歷史回測圖表特徵點與明細以剛才選擇的「{base_strategy}」為主核心驗證)\n"
-        bt_text += "-"*50 + "\n"
-        bt_text += f"> 初始資金: {backtest_res['initial_capital']:,.2f}\n"
-        bt_text += f"> 最終資金: {backtest_res['final_capital']:,.2f}\n"
-        bt_text += "-"*50 + "\n"
+        # ==== 更新回測結果：同時顯示四大策略 ====
+        strategy_icons = {"自創 DMPI": "🚀", "RSI": "📊", "MACD": "📈", "綜合共振": "👑"}
+        bt_text = f"========== 【 {ticker} 四大策略回測比較表 】 ==========\n"
+        bt_text += f"(K線圖標註買賣點以「{base_strategy}」為主)\n\n"
         
-        ret_val = backtest_res['total_return_pct']
-        ret_str = f"{ret_val:+.2f} %"
-        bt_text += f"> 總報酬率: {ret_str}\n"
-        bt_text += f"> 最大權益回撤 (MDD): {backtest_res['max_drawdown_pct']:.2f} %\n"
-        bt_text += f"> 總賣出交易次數: {backtest_res['total_trades']} 次\n"
-        bt_text += f"> 勝率: {backtest_res['win_rate_pct']:.1f} %\n\n"
+        for strat_name, res in all_backtest_results.items():
+            icon = strategy_icons.get(strat_name, "⭐")
+            ret_val = res['total_return_pct']
+            ret_emoji = "🟢" if ret_val > 0 else "🔴"
+            star = " ◄「主圖」" if strat_name == base_strategy else ""
+            bt_text += f"{icon} {strat_name}{star}\n"
+            bt_text += f"   总報酬: {ret_emoji} {ret_val:+.2f}%   MDD: {res['max_drawdown_pct']:.1f}%   分析次數: {res['total_trades']}次   勝率: {res['win_rate_pct']:.1f}%\n"
+            bt_text += "-"*55 + "\n"
         
-        bt_text += "========== 【 近期 15 筆交易明細 】 ==========\n\n"
-        trades = backtest_res['trades']
+        bt_text += "\n"
+        
+        # 主要策略的近期交易明細表 (15 筆)
+        main_res = all_backtest_results.get(base_strategy, {})
+        bt_text += f"===== 【主回測策略「{base_strategy}」近期 15 筆交易明細】 =====\n\n"
+        trades = main_res.get('trades', [])
         if not trades:
             bt_text += "期間內無觸發任何交易。\n"
         else:
-            for t in trades[-15:]: 
+            for t in trades[-15:]:
                 date_str = t['Date'].strftime('%Y-%m-%d')
+                reason = t.get('Reason', '')
                 if 'Buy' in t['Type']:
-                    bt_text += f"[ {date_str} ] 🔺 買進 (Buy)   | 價格: {t['Price']:,.2f}\n"
+                    bt_text += f"[ {date_str} ] 🔺 買進  | 價格: {t['Price']:,.2f}\n"
+                    bt_text += f"              📋 理由: {reason}\n"
                 else:
                     prof = t.get('Profit_%', 0)
                     prof_mark = "🟢" if prof > 0 else "🔴"
-                    bt_text += f"[ {date_str} ] 🔻 賣出 (Sell)  | 價格: {t['Price']:,.2f} | 獲利: {prof_mark} {prof:+.2f} %\n"
+                    bt_text += f"[ {date_str} ] 🔻 賣出  | 價格: {t['Price']:,.2f} | 獲利: {prof_mark} {prof:+.2f}%\n"
+                    bt_text += f"              📋 理由: {reason}\n"
                     
         self.backtest_textbox.insert("0.0", bt_text)
 
