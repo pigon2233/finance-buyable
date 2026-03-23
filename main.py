@@ -93,6 +93,9 @@ class App(ctk.CTk):
         self.search_btn = ctk.CTkButton(self.top_frame, text="開始分析", font=("Microsoft JhengHei", 15, "bold"), command=self.on_search_clicked, height=45, corner_radius=10)
         self.search_btn.pack(side="left", padx=20)
         
+        self.price_label = ctk.CTkLabel(self.top_frame, text="等待資料...", font=("Consolas", 15, "bold"), text_color="gray")
+        self.price_label.pack(side="right", padx=25)
+
         self.status_label = ctk.CTkLabel(self.top_frame, text="", text_color="gray", font=("Microsoft JhengHei", 14))
         self.status_label.pack(side="left", fill="x", expand=True, padx=10)
         
@@ -283,6 +286,24 @@ class App(ctk.CTk):
 
     def update_ui_post_analysis(self, ticker, df, info, financials, all_backtest_results, recs, base_strategy, ai_recs):
         self.status_label.configure(text=f"{ticker} 分析完成！ (結合 AI DRL 強化學習與多指標大腦)", text_color="#00ff00")
+        
+        # ==== 更新價格資訊 ====
+        if not df.empty:
+            last_close = df['Close'].iloc[-1]
+            last_high = df['High'].iloc[-1]
+            last_low = df['Low'].iloc[-1]
+            # 計算漲跌幅 (與前一日收盤價相比)
+            if len(df) > 1:
+                prev_close = df['Close'].iloc[-2]
+                change_pct = (last_close - prev_close) / prev_close * 100
+                color = "#ff5555" if change_pct >= 0 else "#00ff00"
+                sign = "+" if change_pct >= 0 else ""
+                price_text = f"最新收盤: {last_close:,.2f} ({sign}{change_pct:.2f}%) | 高: {last_high:,.2f} | 低: {last_low:,.2f}"
+            else:
+                price_text = f"最新收盤: {last_close:,.2f} | 高: {last_high:,.2f} | 低: {last_low:,.2f}"
+                color = "white"
+            
+            self.price_label.configure(text=price_text, text_color=color)
         
         plot_stock_chart(self.chart_container, df, ticker)
         

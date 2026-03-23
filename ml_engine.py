@@ -26,7 +26,7 @@ class MLExpertEngine:
     def __init__(self, model_path: str = ""):
         # 預設使用 pretrained_brain/ 資料夾的相對路徑
         if not model_path:
-            model_path = os.path.join(BRAIN_DIR, "ppo_trading_lstm.zip")
+            model_path = os.path.join(BRAIN_DIR, "ppo_trading_lstm_updated.zip")
         self.model_path = model_path
         self.model = None
         self.is_loaded = False
@@ -51,8 +51,7 @@ class MLExpertEngine:
             # 先嘗試匯入 LSTMFeatureExtractor，確保類別可被 cloudpickle 找到
             from models.feature_extractor import LSTMFeatureExtractor
             
-            # 用 custom_objects 明確覆蓋架構參數（從 RuntimeError 反推真實訓練架構）
-            # 反推結果：hidden_size=128, features_dim=64, num_layers=1, input_features=10
+            # 反推結果：hidden_size=128, features_dim=64, num_layers=2, input_features=10
             self.model = PPO.load(
                 self.model_path,
                 custom_objects={
@@ -61,8 +60,9 @@ class MLExpertEngine:
                         "features_extractor_kwargs": {
                             "features_dim": 64,
                             "hidden_size": 128,
-                            "num_layers": 1,
+                            "num_layers": 2,
                         },
+                        "net_arch": [64, 64],
                     }
                 }
             )
@@ -99,6 +99,10 @@ class MLExpertEngine:
             rolling_min_20 = df_feat['Close'].rolling(window=20).min()
             df_feat['Macro_Pos_20'] = (df_feat['Close'] - rolling_min_20) / (rolling_max_20 - rolling_min_20 + 1e-8)
             
+            rolling_max_252 = df_feat['Close'].rolling(window=252).max()
+            rolling_min_252 = df_feat['Close'].rolling(window=252).min()
+            df_feat['Macro_Pos_252'] = (df_feat['Close'] - rolling_min_252) / (rolling_max_252 - rolling_min_252 + 1e-8)
+            
             df_feat['Norm_Open'] = (df_feat['Open'] - df_feat['Prev_Close']) / df_feat['Prev_Close']
             df_feat['Norm_High'] = (df_feat['High'] - df_feat['Prev_Close']) / df_feat['Prev_Close']
             df_feat['Norm_Low'] = (df_feat['Low'] - df_feat['Prev_Close']) / df_feat['Prev_Close']
@@ -106,7 +110,7 @@ class MLExpertEngine:
             
             df_feat['Norm_Volume'] = np.log1p(df_feat['Volume']) - np.log1p(df_feat['Volume'].shift(1))
             
-            features = ['Norm_Open', 'Norm_High', 'Norm_Low', 'Norm_Close', 'Norm_Volume', 'Macro_Pos_60', 'Macro_Pos_20']
+            features = ['Norm_Open', 'Norm_High', 'Norm_Low', 'Norm_Close', 'Norm_Volume', 'Macro_Pos_60', 'Macro_Pos_20', 'Macro_Pos_252']
             feature_df = df_feat[features].fillna(0)
             
             # 取最後 window_size 根 K 線作為單次看盤視野 (Shape: 20x7)
@@ -115,12 +119,11 @@ class MLExpertEngine:
             # =========================================================
             # 2. 補齊強化學習環境 (trading_env.py) 的額外維度狀態
             # =========================================================
-            # 模型期望 10 維輸入：7個技術特徵 + 3個環境狀態（空手/持倉/損益）
-            extra = np.zeros((window_size, 3), dtype=np.float32)
-            # 給 AI 最中立的初始觀點：目前空手(0)，未實現損益(0%)，持倉天數(0)
+            # 模型期望 10 維輸入：8個技術特徵 + 2個環境狀態（空手/損益）
+            extra = np.zeros((window_size, 2), dtype=np.float32)
+            # 給 AI 最中立的初始觀點：目前空手(0)，未實現損益(0%)
             extra[:, 0] = 0.0
             extra[:, 1] = 0.0
-            extra[:, 2] = 0.0
             
             # 總維度與訓練時完美吻合 -> Shape: (20, 10)
             obs = np.hstack([recent_obs, extra]).astype(np.float32)
@@ -132,10 +135,8 @@ class MLExpertEngine:
             
             # 決定對應文字 (Action map 對照 trading_env.py)
             action_code = int(action)
-            if action_code == 2:
-                return {"action": "🔥 AI 強烈做多 (Long)", "reason": "DRL 大腦判定當前時間切片期望值極高，建議進場做多。"}
-            elif action_code == 0:
-                return {"action": "❄️ AI 轉空撤退 (Short)", "reason": "DRL 偵測到高度風險特徵，建議反手做空或清倉。"}
+            if action_code == 1:
+                return {"action": "🔥 AI 建議做多 (Long)", "reason": "DRL 大腦判定當前時間切片期望值較高，建議進場做多。"}
             else:
                 return {"action": "☕ AI 建議觀望 (Flat)", "reason": "LSTM 掃描無明確套利空間，建議保持空手。"}
                 
