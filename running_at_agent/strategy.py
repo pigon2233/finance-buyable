@@ -1,0 +1,161 @@
+import pandas as pd
+import numpy as np
+
+def calculate_dmpi(df: pd.DataFrame, window=5, vol_window=20, atr_window=14) -> pd.DataFrame:
+    """
+    計算動態市場壓力指數 (DMPI)
+    修正公式權重，使其數值能有效地產生可用訊號。
+    """
+    df = df.copy()
+    epsilon = 1e-8
+    
+    # 1. 淨壓力 (Net Pressure, NP)
+    high_low_range = df['High'] - df['Low'] + epsilon
+    buy_pressure = (df['Close'] - df['Low']) / high_low_range
+    sell_pressure = (df['High'] - df['Close']) / high_low_range
+    df['Net_Pressure'] = buy_pressure - sell_pressure # 介於 -1 到 1
+    
+    # 2. 成交量因子 (Volume Factor, VF)
+    avg_volume = df['Volume'].rolling(window=vol_window).mean()
+    df['Volume_Factor'] = df['Volume'] / (avg_volume + epsilon)
+    
+    # 3. 波動率懲罰因子 (VP) - 使用 ATR / Close
+    df['Prev_Close'] = df['Close'].shift(1)
+    df['TR'] = df[['High', 'Prev_Close']].max(axis=1) - df[['Low', 'Prev_Close']].min(axis=1)
+    df['ATR'] = df['TR'].rolling(window=atr_window).mean()
+    
+    df['VP'] = df['ATR'] / (df['Close'] + epsilon)
+    df['VP'] = df['VP'].clip(lower=0.01) # 波動率通常在 1% ~ 5% 之間
+    
+    # 4. 原始 DMPI (取消過度縮小的除以 100 動作)
+    # 將其放大到合理的波動區間 (約 -50 到 50 之間)
+    df['Raw_DMPI'] = (df['Net_Pressure'] * df['Volume_Factor']) / df['VP']
+    
+    # 5. 平滑化 (改為 2 天，兼顧靈敏度與濾雜訊)
+    df['DMPI'] = df['Raw_DMPI'].rolling(window=2).mean()
+    
+    return df
+
+def calculate_rsi(df: pd.DataFrame, window=14) -> pd.DataFrame:
+    """計算 相對強弱指標 (RSI)"""
+    df = df.copy()
+    delta = df['Close'].diff()
+    
+    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    
+    rs = gain / (loss + 1e-8)
+    df['RSI'] = 100 - (100 / (1 + rs))
+    return df
+
+def calculate_macd(df: pd.DataFrame, fast=12, slow=26, signal=9) -> pd.DataFrame:
+    """計算 平滑異同移動平均線 (MACD)"""
+    df = df.copy()
+    # 使用指數移動平均
+    df['EMA_Fast'] = df['Close'].ewm(span=fast, adjust=False).mean()
+    df['EMA_Slow'] = df['Close'].ewm(span=slow, adjust=False).mean()
+    
+    df['MACD'] = df['EMA_Fast'] - df['EMA_Slow']
+    df['MACD_Signal'] = df['MACD'].ewm(span=signal, adjust=False).mean()
+    df['MACD_Hist'] = df['MACD'] - df['MACD_Signal']
+    return df
+
+def generate_signals(df: pd.DataFrame, indicator: str = "自創 DMPI") -> pd.DataFrame:
+    """
+    根據選定的技術指標產生買賣訊號
+    1: 買進, -1: 賣出, 0: 觀望
+    """
+    df = df.copy()
+    df['Signal'] = 0
+    df['Position'] = 0
+    
+    buy_condition = pd.Series(False, index=df.index)
+    sell_condition = pd.Series(False, index=df.index)
+    
+    if indicator == "自創 DMPI":
+        if 'DMPI' not in df.columns: return df
+        df['Prev_DMPI'] = df['DMPI'].shift(1)
+        # DMPI 修正後通常在 -50 到 50 震盪，零軸以上翻紅作為買點
+        buy_condition = (df['Prev_DMPI'] <= 0) & (df['DMPI'] > 0)
+        # 跌破零軸作為賣點
+        sell_condition = (df['Prev_DMPI'] >= 0) & (df['DMPI'] < 0)
+
+    elif indicator == "RSI":
+        if 'RSI' not in df.columns: return df
+        df['Prev_RSI'] = df['RSI'].shift(1)
+        # 傳統 RSI 策略：自超賣區(30)反彈向上視為買進
+        buy_condition = (df['Prev_RSI'] <= 30) & (df['RSI'] > 30)
+        # 傳統 RSI 策略：自超買區(70)反轉向下視為賣出
+        sell_condition = (df['Prev_RSI'] >= 70) & (df['RSI'] < 70)
+
+    elif indicator == "MACD":
+        if 'MACD_Hist' not in df.columns: return df
+        df['Prev_Hist'] = df['MACD_Hist'].shift(1)
+        # MACD 柱狀圖由負轉正 (黃金交叉) 視為買進
+        buy_condition = (df['Prev_Hist'] <= 0) & (df['MACD_Hist'] > 0)
+        # MACD 柱狀圖由正轉負 (死亡交叉) 視為賣出
+        sell_condition = (df['Prev_Hist'] >= 0) & (df['MACD_Hist'] < 0)
+
+    elif indicator == "綜合共振":
+        if 'MACD_Hist' in df.columns and 'DMPI' in df.columns and 'RSI' in df.columns:
+            buy_sig = pd.Series(False, index=df.index)
+            sell_sig = pd.Series(False, index=df.index)
+            
+            current_pos = 0
+            for i in range(1, len(df)):
+                dmpi = df['DMPI'].iloc[i]
+                rsi = df['RSI'].iloc[i]
+                macd = df['MACD'].iloc[i]
+                hist = df['MACD_Hist'].iloc[i]
+                
+                # 簡單明確的區間狀態機制，不怕從大跳小平
+                if macd > 0 and hist >= 0:
+                    regime = 'LARGE'
+                elif macd < 0 and hist <= 0:
+                    regime = 'SMALL'
+                else:
+                    regime = 'FLAT'
+                    
+                next_pos = current_pos
+                
+                # 依據使用者指正的區間鎖定交易法 (通道策略)
+                if regime == 'LARGE':
+                    # 多頭：維持在 -30 到 25 之間抱緊多單。>=25 衝高停利，<=-30 跌破防守線停損。
+                    if dmpi >= 25: next_pos = 0
+                    elif dmpi <= -30: next_pos = 0
+                    else: next_pos = 1
+                elif regime == 'SMALL':
+                    # 空頭：下修通道，維持在 -40 到 3 之間搶短多。>=3 反彈無力停利，<=-40 破底停損。
+                    if dmpi >= 3: next_pos = 0
+                    elif dmpi <= -40: next_pos = 0
+                    else: next_pos = 1
+                else:
+                    # 盤整：RSI 均值回歸 (超跌 < 50 買進，超買 > 80 賣出)
+                    if rsi < 50: next_pos = 1
+                    elif rsi > 80: next_pos = 0
+                    
+                if next_pos == 1 and current_pos == 0:
+                    buy_sig.iloc[i] = True
+                elif next_pos == 0 and current_pos == 1:
+                    sell_sig.iloc[i] = True
+                    
+                current_pos = next_pos
+                
+            buy_condition = buy_sig
+            sell_condition = sell_sig
+        
+    df.loc[buy_condition, 'Signal'] = 1
+    df.loc[sell_condition, 'Signal'] = -1
+    
+    # 建立持倉狀態 (Position: 1為持有, 0為空手)
+    current_position = 0
+    positions = []
+    for signal in df['Signal']:
+        if signal == 1:
+            current_position = 1
+        elif signal == -1:
+            current_position = 0
+        positions.append(current_position)
+        
+    df['Position'] = positions
+    return df
