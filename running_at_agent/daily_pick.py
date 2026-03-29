@@ -123,7 +123,19 @@ def main():
     
     for i, r in enumerate(results):
         regime_icon = '📈' if r['regime'] == 'LARGE' else ('➡️' if r['regime'] == 'FLAT' else '📉')
-        print(f"{i+1}. {r['stock']:<12} | 總分:{r['total_score']:5.1f}", flush=True)
+        
+        # 甜區判斷（根據8年回測，80-89最佳，90+報酬遞減）
+        score = r['total_score']
+        if 50 <= score <= 89:
+            zone = '✅甜區'
+        elif 90 <= score <= 99:
+            zone = '⚠️過熱'
+        elif score >= 100:
+            zone = '🔴極熱'
+        else:
+            zone = '🔸普通'
+        
+        print(f"{i+1}. {r['stock']:<12} | 總分:{r['total_score']:5.1f} {zone}", flush=True)
         print(f"   Reg:{regime_icon}{r['regime']:<5} Reg分:{r['regime_score']:5.1f} RSI分:{r['rsi_score']:5.1f} Vol分:{r['vol_score']:5.1f}", flush=True)
         print(f"   RSI={r['rsi']:.1f} 量比={r['volume_ratio']:.2f}x 現價={r['close']:.2f}", flush=True)
         print(flush=True)

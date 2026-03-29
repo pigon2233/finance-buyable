@@ -1,11 +1,18 @@
 import customtkinter as ctk
 import threading
+import queue
+import os
 from datetime import datetime
 import pandas as pd
 
 from data_loader import fetch_stock_info, fetch_financials
 from backtester import run_backtest, get_latest_recommendation
 from chart import plot_stock_chart
+
+# ── 台股掃描模組路徑 ────────────────────────────────────────────────────────
+_SCAN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'running_at_agent')
+_STOCKS_FILE = os.path.join(_SCAN_DIR, 'stocks.txt')
+_PORTFOLIO_FILE = os.path.join(_SCAN_DIR, 'portfolio.txt')
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -161,10 +168,12 @@ class App(ctk.CTk):
         self.tab_chart = self.tabview.add("📊 互動 K 線圖與指標")
         self.tab_backtest = self.tabview.add("📈 策略回測報告")
         self.tab_fundamentals = self.tabview.add("🏢 基本面與財報")
+        self.tab_scanner = self.tabview.add("🔍 台股精銳掃描")
         
         self.setup_chart_tab()
         self.setup_backtest_tab()
         self.setup_fundamentals_tab()
+        self.setup_scanner_tab()
         
         self.bind('<Return>', lambda event: self.on_search_clicked())
 
@@ -188,6 +197,339 @@ class App(ctk.CTk):
         self.tab_backtest.grid_rowconfigure(0, weight=1)
         self.backtest_textbox = ctk.CTkTextbox(self.tab_backtest, font=("Consolas", 16), fg_color="#121212", corner_radius=10)
         self.backtest_textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+
+    def setup_scanner_tab(self):
+        """台股精銳掃描分頁"""
+        tab = self.tab_scanner
+        tab.grid_columnconfigure(0, weight=1)
+        tab.grid_columnconfigure(1, weight=1)
+        tab.grid_columnconfigure(2, weight=1)
+        tab.grid_rowconfigure(1, weight=1)
+
+        # ── 頂部控制列 ────────────────────────────────────────────
+        ctrl = ctk.CTkFrame(tab, fg_color="#1e1e1e", corner_radius=12, border_width=1, border_color="#333333")
+        ctrl.grid(row=0, column=0, columnspan=3, padx=10, pady=(10, 5), sticky="ew")
+
+        ctk.CTkLabel(ctrl, text="🔍 台股精銳掃描（綜合共振策略）",
+                     font=("Microsoft JhengHei", 16, "bold"), text_color="#00bfff").pack(side="left", padx=20, pady=10)
+
+        self.scan_status_lbl = ctk.CTkLabel(ctrl, text="點擊「開始掃描」啟動三階段自動掃描",
+                                             font=("Microsoft JhengHei", 13), text_color="gray")
+        self.scan_status_lbl.pack(side="left", padx=10)
+
+        self.scan_progress = ctk.CTkProgressBar(ctrl, width=180, mode="indeterminate")
+        self.scan_progress.pack(side="left", padx=10)
+        self.scan_progress.stop()
+
+        self.scan_btn = ctk.CTkButton(
+            ctrl, text="▶ 開始掃描", width=130, height=38,
+            font=("Microsoft JhengHei", 14, "bold"),
+            fg_color="#0052cc", hover_color="#0066ff", corner_radius=8,
+            command=self.on_scan_clicked
+        )
+        self.scan_btn.pack(side="right", padx=20, pady=10)
+
+        # ── 三欄輸出區 ────────────────────────────────────────────
+        # 欄1：掃描訊號
+        col1 = ctk.CTkFrame(tab, fg_color="#161616", corner_radius=10, border_width=1, border_color="#333")
+        col1.grid(row=1, column=0, padx=(10, 4), pady=(0, 10), sticky="nsew")
+        col1.grid_rowconfigure(1, weight=1)
+        col1.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(col1, text="📡 第一階段：掃描訊號",
+                     font=("Microsoft JhengHei", 13, "bold"), text_color="#00bfff").grid(row=0, column=0, pady=(8, 2))
+        self.scan_signal_box = ctk.CTkTextbox(col1, font=("Consolas", 12), fg_color="#0d0d0d", corner_radius=8)
+        self.scan_signal_box.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
+
+        # 欄2：評分排名
+        col2 = ctk.CTkFrame(tab, fg_color="#161616", corner_radius=10, border_width=1, border_color="#333")
+        col2.grid(row=1, column=1, padx=4, pady=(0, 10), sticky="nsew")
+        col2.grid_rowconfigure(1, weight=1)
+        col2.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(col2, text="🏆 第二階段：評分排名",
+                     font=("Microsoft JhengHei", 13, "bold"), text_color="#ffcc00").grid(row=0, column=0, pady=(8, 2))
+        self.scan_rank_box = ctk.CTkTextbox(col2, font=("Consolas", 12), fg_color="#0d0d0d", corner_radius=8)
+        self.scan_rank_box.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
+
+        # 欄3：持股檢查
+        col3 = ctk.CTkFrame(tab, fg_color="#161616", corner_radius=10, border_width=1, border_color="#333")
+        col3.grid(row=1, column=2, padx=(4, 10), pady=(0, 10), sticky="nsew")
+        col3.grid_rowconfigure(1, weight=1)
+        col3.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(col3, text="💼 第三階段：持股檢查",
+                     font=("Microsoft JhengHei", 13, "bold"), text_color="#ff9900").grid(row=0, column=0, pady=(8, 2))
+        self.scan_portfolio_box = ctk.CTkTextbox(col3, font=("Consolas", 12), fg_color="#0d0d0d", corner_radius=8)
+        self.scan_portfolio_box.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # 台股掃描：事件驅動
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def on_scan_clicked(self):
+        """按下開始掃描"""
+        self.scan_btn.configure(state="disabled", text="掃描中...")
+        self.scan_progress.start()
+        self.scan_status_lbl.configure(text="載入股票清單中...", text_color="yellow")
+
+        for box in (self.scan_signal_box, self.scan_rank_box, self.scan_portfolio_box):
+            box.configure(state="normal")
+            box.delete("0.0", "end")
+
+        self._scan_queue = queue.Queue()
+        threading.Thread(target=self._run_scan_thread, daemon=True).start()
+        self.after(100, self._poll_scan_queue)
+
+    def _scan_append(self, box_name: str, text: str):
+        """把訊息放入 queue，供主執行緒更新 UI"""
+        self._scan_queue.put((box_name, text))
+
+    def _poll_scan_queue(self):
+        """主執行緒輪詢 queue 並更新 UI"""
+        try:
+            while True:
+                item = self._scan_queue.get_nowait()
+                if item == '__DONE__':
+                    self.scan_btn.configure(state="normal", text="▶ 開始掃描")
+                    self.scan_progress.stop()
+                    return
+                box_name, text = item
+                box = getattr(self, box_name)
+                box.configure(state="normal")
+                box.insert("end", text)
+                box.see("end")
+        except queue.Empty:
+            pass
+        self.after(80, self._poll_scan_queue)
+
+    def _run_scan_thread_impl(self):
+        """背景執行緒：三階段掃描真實邏輯"""
+        import sys, warnings, traceback
+        import yfinance as yf
+        warnings.filterwarnings('ignore')
+        # strategy.py 在專案根目錄，不需要插入 _SCAN_DIR
+        from strategy import calculate_dmpi, calculate_rsi, calculate_macd, generate_signals, evaluate_resonance_stateless
+
+        def fetch_df(ticker, days=120):
+            from datetime import datetime, timedelta
+            from data_loader import get_yf_ticker
+            try:
+                df = get_yf_ticker(ticker).history(
+                    start=(datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+                )
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
+                if df.empty or len(df) < 60:
+                    return None
+                return df
+            except Exception:
+                return None
+
+        def compute(df):
+            df = calculate_dmpi(df)
+            df = calculate_rsi(df)
+            df = calculate_macd(df)
+            df = generate_signals(df, indicator='綜合共振')
+            return df
+
+        def regime(macd, hist):
+            if macd > 0 and hist >= 0: return '多頭'
+            if macd < 0 and hist <= 0: return '空頭'
+            return '盤整'
+
+        def score_zone(s):
+            if s >= 100: return '🔴極熱'
+            if s >= 90:  return '⚠️過熱'
+            if s >= 50:  return '✅甜區'
+            return '🔸普通'
+
+        def calc_score(df, code):
+            last = df.iloc[-1]
+            dmpi   = last['DMPI']
+            macd   = last['MACD']
+            hist   = last.get('MACD_Hist', 0)
+            rsi    = last['RSI']
+            
+            sig = evaluate_resonance_stateless(dmpi, rsi, macd, hist)
+            if sig != 1: return None
+            
+            reg    = regime(macd, hist)
+            vol20  = df['Volume'].rolling(20).mean().iloc[-1]
+            volr   = last['Volume'] / vol20 if vol20 > 0 else 1.0
+            reg_sc = 100 if reg == '多頭' else (40 if reg == '盤整' else 0)
+            if 50 <= rsi <= 70:
+                rsi_sc = 100
+            elif rsi < 50:
+                rsi_sc = max(0, 50 + 50 * rsi / 50)
+            else:
+                rsi_sc = max(0, 100 - (rsi - 70) * 3)
+            vol_sc  = min(100.0, volr * 100)
+            bonus   = min(5.0, max(0.0, (dmpi + 20) / 50 * 5)) if reg == '多頭' and -20 <= dmpi <= 30 else 0.0
+            total   = reg_sc * 0.50 + rsi_sc * 0.30 + vol_sc * 0.20 + bonus
+            return {'stock': code, 'regime': reg, 'dmpi': dmpi, 'rsi': rsi,
+                    'vol_ratio': volr, 'total_score': total, 'close': last['Close'],
+                    'reg_sc': reg_sc, 'rsi_sc': rsi_sc, 'vol_sc': vol_sc, 'bonus': bonus}
+
+        # ── 讀取清單 ─────────────────────────────────────────────
+        def load_stocks():
+            if not os.path.exists(_STOCKS_FILE):
+                return []
+            result = []
+            with open(_STOCKS_FILE, encoding='utf-8') as f:
+                for line in f:
+                    c = line.strip()
+                    if c and not c.startswith('#'):
+                        result.append(c)
+            return result
+
+        def load_portfolio():
+            if not os.path.exists(_PORTFOLIO_FILE):
+                return []
+            result = []
+            with open(_PORTFOLIO_FILE, encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    parts = line.split(',')
+                    if len(parts) == 3:
+                        try:
+                            result.append((parts[0].strip(), float(parts[1]), float(parts[2])))
+                        except ValueError:
+                            pass
+            return result
+
+        stocks = load_stocks()
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+        self.after(0, lambda: self.scan_status_lbl.configure(
+            text=f"{now_str} ─ 掃描 {len(stocks)} 支股票中...", text_color="yellow"))
+
+        # ══ 第一階段：掃描 ════════════════════════════════════════
+        hdr = f"{'代碼':<10} {'DMPI':>6} {'RSI':>5} {'MACD':>8} {'趨勢':>4}  訊號\n"
+        hdr += '=' * 50 + '\n'
+        self._scan_append('scan_signal_box', hdr)
+
+        rows = []
+        buy_list, sell_list = [], []
+
+        for i, stock in enumerate(stocks):
+            self.after(0, lambda s=stock, n=i+1, t=len(stocks): self.scan_status_lbl.configure(
+                text=f"[{n}/{t}] 分析 {s}...", text_color="yellow"))
+            try:
+                df = fetch_df(stock, 120)
+                if df is None:
+                    continue
+                df = compute(df)
+                last  = df.iloc[-1]
+                dmpi  = last['DMPI']
+                rsi   = last['RSI']
+                macd  = last['MACD']
+                hist  = last.get('MACD_Hist', 0)
+                
+                sig   = int(last.get('Signal', 0))
+                pos   = int(last.get('Position', 0))
+                reg   = regime(macd, hist)
+                
+                if sig == 1: icon = '🔥新買'
+                elif sig == -1: icon = '🧹賣出'
+                elif pos == 1: icon = '☕持有'
+                else: icon = '☕觀望'
+                
+                line  = f"{stock:<10} {dmpi:>6.1f} {rsi:>5.1f} {macd:>8.2f} {reg:>4}  {icon}\n"
+                self._scan_append('scan_signal_box', line)
+                sc = calc_score(df, stock) if sig == 1 else None
+                if sig == 1: buy_list.append(stock)
+                if sig == -1: sell_list.append(stock)
+                rows.append({'stock': stock, 'signal': sig, 'score_data': sc, 'close': last['Close']})
+            except Exception as e:
+                self._scan_append('scan_signal_box', f"{stock:<10} ❌ Error: {e}\n")
+
+        total = len(buy_list) + len(sell_list)
+        summary = (
+            '=' * 50 + '\n'
+            f"🔥 強烈買進: {', '.join(buy_list) if buy_list else '無'} ({len(buy_list)} 支)\n"
+            f"🧹 強烈賣出: {', '.join(sell_list) if sell_list else '無'} ({len(sell_list)} 支)\n"
+            f"📊 統計：{total}/{len(stocks)} 支有訊號\n"
+        )
+        self._scan_append('scan_signal_box', summary)
+
+        # ══ 第二階段：評分排名 ════════════════════════════════════
+        ranked = sorted(
+            [r['score_data'] for r in rows if r['score_data'] is not None],
+            key=lambda x: x['total_score'], reverse=True
+        )
+        if ranked:
+            rank_txt  = f"共 {len(ranked)} 支買訊，依評分排名：\n\n"
+            rank_txt += f"{'#':<3} {'代碼':<12} {'總分':>6} {'評級':<8} {'趨勢':<4} {'RSI':>5} {'量比':>6} {'現價':>8}\n"
+            rank_txt += '-' * 60 + '\n'
+            for i, r in enumerate(ranked):
+                icon2 = '📈' if r['regime'] == '多頭' else ('➡️' if r['regime'] == '盤整' else '📉')
+                rank_txt += (
+                    f"{i+1:<3} {r['stock']:<12} {r['total_score']:>6.1f} "
+                    f"{score_zone(r['total_score']):<8} {icon2}{r['regime']:<3} "
+                    f"{r['rsi']:>5.1f} {r['vol_ratio']:>6.2f}x {r['close']:>8.2f}\n"
+                )
+            rank_txt += '-' * 60 + '\n'
+            rank_txt += "💡 評分邏輯：多頭趨勢50% + RSI強勢區30% + 量比20% + DMPI加分\n"
+        else:
+            rank_txt = "本次掃描無合格買訊號股票。\n"
+        self._scan_append('scan_rank_box', rank_txt)
+
+        # ══ 第三階段：持股檢查 ════════════════════════════════════
+        positions = load_portfolio()
+        if not positions:
+            pf_txt = "portfolio.txt 無持股紀錄。\n"
+        else:
+            pf_txt  = f"{'代碼':<12} {'現價':>6} {'PnL':>12} {'DMPI':>6} {'RSI':>5}  結論\n"
+            pf_txt += '=' * 55 + '\n'
+            has_sell = False
+            for stock, cost, qty in positions:
+                try:
+                    df = fetch_df(stock, 120)
+                    if df is None:
+                        pf_txt += f"{stock:<12} 資料不足\n"
+                        continue
+                    df = compute(df)
+                    last   = df.iloc[-1]
+                    close  = last['Close']
+                    dmpi   = last['DMPI']
+                    rsi    = last['RSI']
+                    macd   = last['MACD']
+                    hist   = last.get('MACD_Hist', 0)
+                    sig    = int(last.get('Signal', 0))
+                    pos    = int(last.get('Position', 0))
+                    pnl    = (close - cost) * qty
+                    pnl_p  = (close - cost) / cost * 100
+                    
+                    if sig == 1: result = '🔥加碼'
+                    elif sig == -1: result = '🧹出場'
+                    elif pos == 1: result = '☕續抱'
+                    else: result = '☕觀望'
+                    
+                    if sig == -1: has_sell = True
+                    pf_txt += f"{stock:<12} {close:>6.0f} {pnl:>+7.0f}({pnl_p:>+5.1f}%) {dmpi:>6.1f} {rsi:>5.1f}  {result}\n"
+                except Exception:
+                    pf_txt += f"{stock:<12} Error\n"
+            pf_txt += '=' * 55 + '\n'
+            pf_txt += '⚠️ 有持股出現賣訊！請注意風控！\n' if has_sell else '✅ 全數持有中，無賣訊\n'
+        self._scan_append('scan_portfolio_box', pf_txt)
+
+        # ── 完成 ─────────────────────────────────────────────────
+        done_str = datetime.now().strftime('%H:%M:%S')
+        self.after(0, lambda: self.scan_status_lbl.configure(
+            text=f"✅ 掃描完成 {done_str}，共 {len(stocks)} 支", text_color="#00ff00"))
+
+    def _run_scan_thread(self):
+        """背景執行緒：三階段掃描（加 try/finally 確保 __DONE__ 一定送出）"""
+        try:
+            self._run_scan_thread_impl()
+        except Exception as e:
+            import traceback
+            err = traceback.format_exc()
+            err_msg = str(e)
+            self._scan_append('scan_signal_box', f"\n❌ 掃描發生嚴重錯誤：\n{err}\n")
+            self.after(0, lambda m=err_msg: self.scan_status_lbl.configure(
+                text=f"❌ 掃描失敗: {m}", text_color="#ff5555"))
+        finally:
+            self._scan_queue.put('__DONE__')
         
     def on_search_clicked(self):
         ticker = self.ticker_entry.get().strip().upper()
@@ -318,6 +660,9 @@ class App(ctk.CTk):
         # ==== 更新三大指標建議卡片 ====
         def update_card(lbl_act, lbl_desc, rec_data):
             act = rec_data.get("action", "N/A")
+            val = rec_data.get("value")
+            if val is not None:
+                act += f"  [ 數值: {val:.2f} ]"
             lbl_act.configure(text=act)
             lbl_desc.configure(text=rec_data.get("reason", ""))
             

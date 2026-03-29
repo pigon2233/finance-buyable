@@ -60,6 +60,30 @@ def calculate_macd(df: pd.DataFrame, fast=12, slow=26, signal=9) -> pd.DataFrame
     df['MACD_Hist'] = df['MACD'] - df['MACD_Signal']
     return df
 
+def evaluate_resonance_stateless(dmpi: float, rsi: float, macd: float, hist: float) -> int:
+    """
+    純粹判斷單日各指標是否在「綜合共振」的安全區間內（無記憶狀態，AI Agent 與掃描器專用）。
+    回傳 1(買進區間), -1(出場/停損點), 0(觀望/非買賣區)
+    """
+    if macd > 0 and hist >= 0:
+        regime = '多頭'
+    elif macd < 0 and hist <= 0:
+        regime = '空頭'
+    else:
+        regime = '盤整'
+        
+    # 判斷是否符合買點 (進場區間)
+    if regime == '多頭' and -20 <= dmpi <= 30: return 1
+    if regime == '空頭' and -40 <= dmpi <= 3: return 1
+    if regime == '盤整' and rsi < 50: return 1
+    
+    # 判斷是否符合賣點 (極端值、停損/停利點)
+    if regime == '多頭' and (dmpi >= 30 or dmpi <= -20): return -1
+    if regime == '空頭' and (dmpi >= 3 or dmpi <= -40): return -1
+    if regime == '盤整' and rsi > 80: return -1
+    
+    return 0
+
 def generate_signals(df: pd.DataFrame, indicator: str = "自創 DMPI") -> pd.DataFrame:
     """
     根據選定的技術指標產生買賣訊號
@@ -108,31 +132,33 @@ def generate_signals(df: pd.DataFrame, indicator: str = "自創 DMPI") -> pd.Dat
                 macd = df['MACD'].iloc[i]
                 hist = df['MACD_Hist'].iloc[i]
                 
-                # 簡單明確的區間狀態機制，不怕從大跳小平
+                # 判斷當下大趨勢狀態
                 if macd > 0 and hist >= 0:
-                    regime = 'LARGE'
+                    regime = '多頭'
                 elif macd < 0 and hist <= 0:
-                    regime = 'SMALL'
+                    regime = '空頭'
                 else:
-                    regime = 'FLAT'
+                    regime = '盤整'
                     
                 next_pos = current_pos
                 
-                # 依據使用者指正的區間鎖定交易法 (通道策略)
-                if regime == 'LARGE':
-                    # 多頭：維持在 -30 到 25 之間抱緊多單。>=25 衝高停利，<=-30 跌破防守線停損。
-                    if dmpi >= 25: next_pos = 0
-                    elif dmpi <= -30: next_pos = 0
-                    else: next_pos = 1
-                elif regime == 'SMALL':
-                    # 空頭：下修通道，維持在 -40 到 3 之間搶短多。>=3 反彈無力停利，<=-40 破底停損。
-                    if dmpi >= 3: next_pos = 0
-                    elif dmpi <= -40: next_pos = 0
-                    else: next_pos = 1
+                # 依據最新共振通道策略
+                if current_pos == 0:
+                    # ── 進場條件 (目前空手) ──
+                    if regime == '多頭' and -20 <= dmpi <= 30:
+                        next_pos = 1
+                    elif regime == '空頭' and -40 <= dmpi <= 3:
+                        next_pos = 1
+                    elif regime == '盤整' and rsi < 50:
+                        next_pos = 1
                 else:
-                    # 盤整：RSI 均值回歸 (超跌 < 50 買進，超買 > 80 賣出)
-                    if rsi < 50: next_pos = 1
-                    elif rsi > 80: next_pos = 0
+                    # ── 出場條件 (目前持股) ──
+                    if regime == '多頭' and (dmpi >= 30 or dmpi <= -20):
+                        next_pos = 0
+                    elif regime == '空頭' and (dmpi >= 3 or dmpi <= -40):
+                        next_pos = 0
+                    elif regime == '盤整' and rsi > 80:
+                        next_pos = 0
                     
                 if next_pos == 1 and current_pos == 0:
                     buy_sig.iloc[i] = True

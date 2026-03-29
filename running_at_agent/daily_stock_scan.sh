@@ -98,6 +98,62 @@ else
     PICK_OUTPUT="無買訊號股票"
 fi
 
+# 第三階段：持股檢查
+PORTFOLIO_OUTPUT=$(python3 << 'PYEOF'
+import yfinance as yf
+from strategy import calculate_dmpi, calculate_rsi, calculate_macd, generate_signals
+from datetime import datetime, timedelta
+
+# 持股列表：代碼, 成本, 股數
+positions = [
+    ('2357.TW', 567, 1),
+    ('2376.TW', 235, 1),
+    ('2548.TW', 122.5, 4),
+    ('3045.TW', 109.5, 4),
+]
+
+print('{:<10} {:>6} {:>7} {:>6} {:>5} {:>4} {}'.format('代碼','現價','PnL','DMPI','RSI','Signal','結論'))
+print('=' * 60)
+
+has_sell = False
+for stock, cost, qty in positions:
+    try:
+        df = yf.Ticker(stock).history(start=(datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+        df = calculate_dmpi(df)
+        df = calculate_rsi(df)
+        df = calculate_macd(df)
+        df = generate_signals(df, indicator='綜合共振')
+        
+        last = df.iloc[-1]
+        close = last['Close']
+        dmpi = last['DMPI']
+        rsi = last['RSI']
+        signal = int(last['Signal'])
+        
+        pnl = (close - cost) * qty
+        pnl_pct = (close - cost) / cost * 100
+        
+        if signal == 1:
+            result = '🔥買'
+        elif signal == -1:
+            result = '🧹賣'
+            has_sell = True
+        else:
+            result = '☕觀'
+        
+        print('{:<10} {:>6.0f} {:>+6.0f}({:>+5.1f}%) {:>6.1f} {:>5.1f} {:>4} {}'.format(
+            stock, close, pnl, pnl_pct, dmpi, rsi, signal, result))
+    except:
+        print('{:<10} Error'.format(stock))
+
+print('=' * 60)
+if has_sell:
+    print('⚠️ 【警告】有持股出現賣訊！')
+else:
+    print('✅ 全數持有中，無賣訊')
+PYEOF
+)
+
 # 發送 Discord 訊息
 /home/pigon/.npm-global/bin/openclaw message send --channel discord --target 1484229476916138014 --message "📈 台股每日精銳掃描 $(date '+%Y-%m-%d')（綜合共振策略）
 
@@ -109,4 +165,10 @@ $SCAN_RESULT
 
 \`\`\`
 $PICK_OUTPUT
+\`\`\`
+
+💼 持股檢查
+
+\`\`\`
+$PORTFOLIO_OUTPUT
 \`\`\`"

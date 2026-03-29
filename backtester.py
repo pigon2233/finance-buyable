@@ -202,4 +202,8 @@ def get_latest_recommendation(df: pd.DataFrame) -> dict:
     except Exception as e:
         recs["綜合共振"] = {"action": "N/A", "reason": f"綜合運算錯誤 {e}"}
 
+    if "DMPI" in recs: recs["DMPI"]["value"] = dmpi
+    if "RSI" in recs: recs["RSI"]["value"] = rsi
+    if "MACD" in recs: recs["MACD"]["value"] = hist
+
     return recs
