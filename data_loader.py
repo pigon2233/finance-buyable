@@ -45,7 +45,7 @@ def fetch_stock_info(ticker: str) -> dict:
             "pe_ratio": info.get("trailingPE", "N/A"),
             "forward_pe": info.get("forwardPE", "N/A"),
             "eps": info.get("trailingEps", "N/A"),
-            "dividend_yield": info.get("dividendYield", "N/A"),
+            "dividend_yield": info.get("dividendYield", info.get("trailingAnnualDividendYield", "N/A")),
             "52_week_high": info.get("fiftyTwoWeekHigh", "N/A"),
             "52_week_low": info.get("fiftyTwoWeekLow", "N/A"),
         }
