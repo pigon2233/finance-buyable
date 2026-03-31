@@ -439,9 +439,10 @@ async def run_scan():
             if r and r["action"] in ["🔥新買", "🧹賣出", "☕持有", "☕觀望"]:
                 results.append(r)
                 
-    # Filter only actionable ones and sort by score desc
-    actionables = [r for r in results if r["action"] in ["🔥新買", "🧹賣出", "☕持有"]]
-    actionables.sort(key=lambda x: x["score"], reverse=True)
+    # Group: 🔥買進置頂 → ☕持有 → 🧹賣出，同組內依分數由高到低
+    ACTION_ORDER = {"🔥新買": 0, "☕持有": 1, "🧹賣出": 2}
+    actionables = [r for r in results if r["action"] in ACTION_ORDER]
+    actionables.sort(key=lambda x: (ACTION_ORDER.get(x["action"], 9), -x["score"]))
     return {"results": actionables}
 
 
@@ -450,31 +451,6 @@ async def health():
     return {"status": "ok", "time": datetime.now().isoformat()}
 
 
-# ── 靜態檔案服務 (用於生產環境) ──
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-
-# 檢查是否存在編譯後的前端資料夾 (frontend/out)
-_frontend_out = BASE_DIR / "frontend" / "out"
-if _frontend_out.exists():
-    # 註冊靜態檔案
-    app.mount("/_next", StaticFiles(directory=str(_frontend_out / "_next")), name="next-assets")
-    
-    @app.get("/{path:path}")
-    async def serve_spa(path: str):
-        # 優先檢查 API
-        if path.startswith("api/"):
-            raise HTTPException(status_code=404)
-        
-        # 檢查檔案是否存在
-        file_path = _frontend_out / path
-        if file_path.exists() and file_path.is_file():
-            return FileResponse(file_path)
-            
-        # 否則回傳 index.html (SPA 路由)
-        return FileResponse(_frontend_out / "index.html")
-
 if __name__ == "__main__":
     import uvicorn
-    # 生產環境建議關閉 reload
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

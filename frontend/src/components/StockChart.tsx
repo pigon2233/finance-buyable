@@ -121,23 +121,28 @@ export default function StockChart({ data }: Props) {
     });
 
     // ── Crosshair & Tooltip Sync ───────────────────────────────────────
-    const handleCrosshair = (param: any, source: IChartApi, target: IChartApi) => {
-      if (!param.point) {
+    const handleCrosshair = (param: any, target: IChartApi, targetSeries: ISeriesApi<any>) => {
+      if (!param.point || !param.time) {
         setTooltipData(null);
         target.clearCrosshairPosition();
         return;
       }
+
       // Extract data for tooltip
-      const time = param.time as string;
-      const bar = data.find(d => d.time === time);
+      const time = param.time;
+      // time can be a string or a BusinessDay object. For find to work, we need a string match.
+      const timeStr = typeof time === 'string' ? time : `${time.year}-${String(time.month).padStart(2, '0')}-${String(time.day).padStart(2, '0')}`;
+      
+      const bar = data.find(d => d.time === timeStr);
       if (bar) setTooltipData(bar);
 
-      // Sync crosshair to the other chart
-      target.setCrosshairPosition(param.point.x, param.time, rsiSeries);
+      // Sync crosshair to the other chart by using a dummy price (0) and the shared time
+      // The first parameter is the price, the second is the time index.
+      target.setCrosshairPosition(0, time, targetSeries);
     };
 
-    mainChart.subscribeCrosshairMove(p => handleCrosshair(p, mainChart, rsiChart));
-    rsiChart.subscribeCrosshairMove(p => handleCrosshair(p, rsiChart, mainChart));
+    mainChart.subscribeCrosshairMove(p => handleCrosshair(p, rsiChart, rsiSeries));
+    rsiChart.subscribeCrosshairMove(p => handleCrosshair(p, mainChart, candleSeries));
 
     // Initial tooltip state (last candle)
     setTooltipData(data[data.length - 1]);

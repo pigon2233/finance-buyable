@@ -1,8 +1,9 @@
-fastapi==0.110.0
-uvicorn==0.28.0
-pandas==2.2.1
-yfinance==0.2.37
-curl_cffi==0.6.2
-numpy==1.26.4
-pydantic==2.6.4
-python-multipart==0.0.9
+customtkinter
+pandas
+yfinance
+curl_cffi
+numpy
+matplotlib
+mplfinance
+stable-baselines3
+gymnasium

@@ -184,11 +184,11 @@ function FundamentalsView({ ticker }: { ticker: string }) {
         </div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        <div><div className="text-xs text-[var(--text-muted)]">本益比 (Trailing P/E)</div><div className="text-xl font-bold mt-1">{f.pe_ratio ? f.pe_ratio.toFixed(2) : 'N/A'}</div></div>
-        <div><div className="text-xs text-[var(--text-muted)]">預估本益比 (Forward P/E)</div><div className="text-xl font-bold mt-1">{f.forward_pe ? f.forward_pe.toFixed(2) : 'N/A'}</div></div>
-        <div><div className="text-xs text-[var(--text-muted)]">EPS (每股盈餘)</div><div className="text-xl font-bold mt-1">{f.eps ? f.eps.toFixed(2) : 'N/A'}</div></div>
-        <div><div className="text-xs text-[var(--text-muted)]">殖利率 (Yield)</div><div className="text-xl font-bold mt-1 text-[#f5c842]">{f.dividend_yield ? (f.dividend_yield*100).toFixed(2)+'%' : 'N/A'}</div></div>
-        <div><div className="text-xs text-[var(--text-muted)]">市值 (Market Cap)</div><div className="text-xl font-bold mt-1">{(f.market_cap / 1e8).toFixed(2)} 億</div></div>
+        <div><div className="text-xs text-[var(--text-muted)]">本益比 (Trailing P/E)</div><div className="text-xl font-bold mt-1">{typeof f.pe_ratio === 'number' ? f.pe_ratio.toFixed(2) : 'N/A'}</div></div>
+        <div><div className="text-xs text-[var(--text-muted)]">預估本益比 (Forward P/E)</div><div className="text-xl font-bold mt-1">{typeof f.forward_pe === 'number' ? f.forward_pe.toFixed(2) : 'N/A'}</div></div>
+        <div><div className="text-xs text-[var(--text-muted)]">EPS (每股盈餘)</div><div className="text-xl font-bold mt-1">{typeof f.eps === 'number' ? f.eps.toFixed(2) : 'N/A'}</div></div>
+        <div><div className="text-xs text-[var(--text-muted)]">殖利率 (Yield)</div><div className="text-xl font-bold mt-1 text-[#f5c842]">{typeof f.dividend_yield === 'number' ? (f.dividend_yield * 100).toFixed(2) + '%' : 'N/A'}</div></div>
+        <div><div className="text-xs text-[var(--text-muted)]">市值 (Market Cap)</div><div className="text-xl font-bold mt-1">{typeof f.market_cap === 'number' ? (f.market_cap / 1e8).toFixed(2) + ' 億' : 'N/A'}</div></div>
         <div><div className="text-xs text-[var(--text-muted)]">52週最高</div><div className="text-xl font-bold mt-1 text-[#ff4d6a]">{f["52_week_high"]}</div></div>
         <div><div className="text-xs text-[var(--text-muted)]">52週最低</div><div className="text-xl font-bold mt-1 text-[#00e5a0]">{f["52_week_low"]}</div></div>
       </div>
@@ -202,10 +202,24 @@ function ScannerView({ onSelect }: { onSelect: (t: string) => void }) {
   const [L, setL] = useState({ p: true, s: false });
   const [edit, setEdit] = useState<Partial<PortfolioItem> | null>(null);
 
+  const [isAuto, setIsAuto] = useState(false);
+  const [countdown, setCountdown] = useState(300);
+
   const fetchPort = () => { setL(p => ({...p, p:true})); getPortfolio().then(setPort).finally(()=>setL(p => ({...p, p:false}))); };
   useEffect(() => { fetchPort(); }, []);
 
   const handleScan = () => { setL(p => ({...p, s:true})); runScan().then(setScan).finally(()=>setL(p => ({...p, s:false}))); };
+
+  useEffect(() => {
+    if (!isAuto) { setCountdown(300); return; }
+    const itv = setInterval(() => {
+      setCountdown(c => {
+        if (c <= 1) { handleScan(); return 300; }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(itv);
+  }, [isAuto]);
 
   return (
     <div className="space-y-8 p-1">
@@ -275,11 +289,11 @@ function ScannerView({ onSelect }: { onSelect: (t: string) => void }) {
               <div className="grid grid-cols-2 gap-6">
                 <div>
                     <label className="text-sm font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">每股平均成本</label>
-                    <input type="number" value={edit.cost} onChange={e=>setEdit({...edit, cost: parseFloat(e.target.value)})} className="w-full mt-3 bg-[var(--bg-elevated)] border-2 border-[var(--border)] rounded-2xl px-6 py-4 outline-none font-black text-2xl tabular-nums focus:border-[var(--accent-blue)] transition-all" />
+                    <input type="number" value={Number.isNaN(edit.cost) ? "" : edit.cost} onChange={e=>setEdit({...edit, cost: parseFloat(e.target.value)})} className="w-full mt-3 bg-[var(--bg-elevated)] border-2 border-[var(--border)] rounded-2xl px-6 py-4 outline-none font-black text-2xl tabular-nums focus:border-[var(--accent-blue)] transition-all" />
                 </div>
                 <div>
                     <label className="text-sm font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">持有總股數</label>
-                    <input type="number" value={edit.qty} onChange={e=>setEdit({...edit, qty: parseFloat(e.target.value)})} className="w-full mt-3 bg-[var(--bg-elevated)] border-2 border-[var(--border)] rounded-2xl px-6 py-4 outline-none font-black text-2xl tabular-nums focus:border-[var(--accent-blue)] transition-all" />
+                    <input type="number" value={Number.isNaN(edit.qty) ? "" : edit.qty} onChange={e=>setEdit({...edit, qty: parseFloat(e.target.value)})} className="w-full mt-3 bg-[var(--bg-elevated)] border-2 border-[var(--border)] rounded-2xl px-6 py-4 outline-none font-black text-2xl tabular-nums focus:border-[var(--accent-blue)] transition-all" />
                 </div>
               </div>
             </div>
@@ -299,6 +313,13 @@ function ScannerView({ onSelect }: { onSelect: (t: string) => void }) {
             <span className="hidden lg:inline-flex items-center gap-2 bg-[#ff4d6a]/10 text-[#ff4d6a] px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border border-[#ff4d6a]/20"><span className="w-2 h-2 bg-[#ff4d6a] rounded-full animate-ping" /> Live Scan Active</span>
           </div>
           <div className="flex items-center gap-6">
+            <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border-2 transition-all cursor-pointer select-none ${isAuto ? "bg-blue-500/10 border-blue-500/50" : "bg-white/5 border-white/10 opacity-60"}`} onClick={() => setIsAuto(!isAuto)}>
+                <div className={`w-3 h-3 rounded-full ${isAuto ? "bg-blue-500 animate-pulse" : "bg-gray-500"}`} />
+                <div className="flex flex-col">
+                    <span className={`text-[10px] font-black uppercase tracking-widest leading-none ${isAuto ? "text-blue-400" : "text-gray-500"}`}>下一次追蹤分析倒數</span>
+                    <span className={`text-sm font-black italic tabular-nums leading-tight ${isAuto ? "text-blue-200" : "text-gray-400"}`}>{isAuto ? `${Math.floor(countdown/60)}:${String(countdown%60).padStart(2,'0')}` : "自動模式已關閉"}</span>
+                </div>
+            </div>
             <div className="text-right hidden xl:block">
                 <div className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest leading-none mb-1">正在並行處理</div>
                 <div className="text-base font-black text-[var(--accent-gold)]">150 支核心追蹤股 (TW High Gain)</div>
@@ -325,21 +346,39 @@ function ScannerView({ onSelect }: { onSelect: (t: string) => void }) {
                 </tr>
               </thead>
               <tbody className="divide-y-2 divide-[var(--border)]">
-                {scan.map((s, idx) => (
-                  <tr key={s.ticker} className={`transition-all duration-300 group hover:bg-[var(--accent-blue)]/5 ${idx < 5 ? 'bg-[var(--accent-gold)]/5' : ''}`}>
-                    <td onClick={() => onSelect(s.ticker)} className="p-5 cursor-pointer group-hover:pl-7 transition-all"><div className="font-black text-xl flex items-center gap-2">{idx < 3 && <Star size={16} className="text-[var(--accent-gold)]" fill="currentColor"/>} {s.ticker}</div><div className="text-sm font-black text-gray-500 uppercase tracking-widest leading-none mt-1">{s.name}</div></td>
-                    <td className="p-5 text-right font-black text-xl tabular-nums tracking-tighter">{s.price.toFixed(2)}</td>
-                    <td className={`p-5 text-right font-black text-xl tabular-nums tracking-tighter ${s.change_pct >= 0 ? 'text-[#ff4d6a]' : 'text-[#00e5a0]'}`}>{s.change_pct > 0 ? '+' : ''}{s.change_pct.toFixed(2)}%</td>
-                    <td className="p-5"><span className={`px-4 py-1.5 rounded-xl text-xs font-black border-2 shadow-2xl transition-all group-hover:border-white/20 ${regimeBadge(s.regime)}`}>{s.regime}</span></td>
-                    <td className="p-5 text-center"><div className="text-3xl font-black text-[var(--accent-gold)] tabular-nums italic tracking-tighter drop-shadow-[0_0_10px_rgba(245,200,66,0.3)]">{s.score}</div></td>
-                    <td className={`p-5 text-right font-black text-lg tabular-nums ${s.dmpi > 0 ? "text-[#ff4d6a]" : "text-[#00e5a0]"}`}>{s.dmpi.toFixed(2)}</td>
-                    <td className="p-5 text-right font-black text-lg tabular-nums text-purple-400">{s.rsi.toFixed(1)}</td>
-                    <td className={`p-5 font-black text-2xl italic tracking-tighter ${actionColor(s.action)}`}>{s.action}</td>
-                    <td className="p-5 text-right">
-                      <button onClick={() => onSelect(s.ticker)} className="bg-white/5 text-white p-3 rounded-2xl transition-all hover:bg-[var(--accent-blue)] hover:shadow-xl hover:scale-110 active:scale-95 border border-white/10" title="進入同步戰鬥室分析"><Radar size={22}/></button>
-                    </td>
-                  </tr>
-                ))}
+                {(() => {
+                  const groups: { label: string; emoji: string; color: string; bg: string; border: string; items: typeof scan }[] = [
+                    { label: "強力買進訊號", emoji: "🔥", color: "text-[#ff4d6a]", bg: "bg-[#ff4d6a]/10", border: "border-[#ff4d6a]/30", items: scan.filter(s => s.action === "🔥新買") },
+                    { label: "觀察持有中", emoji: "☕", color: "text-[#f0a030]", bg: "bg-[#f0a030]/10", border: "border-[#f0a030]/30", items: scan.filter(s => s.action === "☕持有") },
+                    { label: "賣出訊號", emoji: "🧹", color: "text-[#00e5a0]", bg: "bg-[#00e5a0]/10", border: "border-[#00e5a0]/30", items: scan.filter(s => s.action === "🧹賣出") },
+                  ];
+                  return groups.filter(g => g.items.length > 0).flatMap((g, gi) => [
+                    <tr key={`hdr-${gi}`} className={`${g.bg} border-b-2 ${g.border} border-t-2`}>
+                      <td colSpan={9} className={`px-6 py-3 font-black text-sm uppercase tracking-widest ${g.color} flex items-center gap-2`}>
+                        <span className="text-xl">{g.emoji}</span>
+                        {g.label} <span className="ml-2 opacity-60 font-bold text-xs">({g.items.length} 支)</span>
+                      </td>
+                    </tr>,
+                    ...g.items.map((s, idx) => (
+                      <tr key={s.ticker} className={`transition-all duration-300 group hover:bg-[var(--accent-blue)]/5 ${g.emoji === "🔥" && idx < 3 ? "bg-[#ff4d6a]/5" : ""}`}>
+                        <td onClick={() => onSelect(s.ticker)} className="p-5 cursor-pointer group-hover:pl-7 transition-all">
+                          <div className="font-black text-xl flex items-center gap-2">{g.emoji === "🔥" && idx < 3 && <Star size={16} className="text-[var(--accent-gold)]" fill="currentColor"/>} {s.ticker}</div>
+                          <div className="text-sm font-black text-gray-500 uppercase tracking-widest leading-none mt-1">{s.name}</div>
+                        </td>
+                        <td className="p-5 text-right font-black text-xl tabular-nums tracking-tighter">{s.price.toFixed(2)}</td>
+                        <td className={`p-5 text-right font-black text-xl tabular-nums tracking-tighter ${s.change_pct >= 0 ? 'text-[#ff4d6a]' : 'text-[#00e5a0]'}`}>{s.change_pct > 0 ? '+' : ''}{s.change_pct.toFixed(2)}%</td>
+                        <td className="p-5"><span className={`px-4 py-1.5 rounded-xl text-xs font-black border-2 shadow-2xl transition-all group-hover:border-white/20 ${regimeBadge(s.regime)}`}>{s.regime}</span></td>
+                        <td className="p-5 text-center"><div className="text-3xl font-black text-[var(--accent-gold)] tabular-nums italic tracking-tighter drop-shadow-[0_0_10px_rgba(245,200,66,0.3)]">{s.score}</div></td>
+                        <td className={`p-5 text-right font-black text-lg tabular-nums ${s.dmpi > 0 ? "text-[#ff4d6a]" : "text-[#00e5a0]"}`}>{s.dmpi.toFixed(2)}</td>
+                        <td className="p-5 text-right font-black text-lg tabular-nums text-purple-400">{s.rsi.toFixed(1)}</td>
+                        <td className={`p-5 font-black text-2xl italic tracking-tighter ${actionColor(s.action)}`}>{s.action}</td>
+                        <td className="p-5 text-right">
+                          <button onClick={() => onSelect(s.ticker)} className="bg-white/5 text-white p-3 rounded-2xl transition-all hover:bg-[var(--accent-blue)] hover:shadow-xl hover:scale-110 active:scale-95 border border-white/10" title="進入同步戰鬥室分析"><Radar size={22}/></button>
+                        </td>
+                      </tr>
+                    ))
+                  ]);
+                })()}
               </tbody>
             </table>
           ) : !L.s && (
@@ -496,7 +535,7 @@ export default function Home() {
 
         {/* Dynamic Content Area (FLEX to fill remaining height) */}
         <div className="flex-1 overflow-auto p-6 bg-[#0a0a0f] flex flex-col">
-          {tabMode === "SCANNER" ? ( <ScannerView /> ) : (
+          {tabMode === "SCANNER" ? ( <ScannerView onSelect={sidebarSelect} /> ) : (
             !data ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center gap-6">
                 <div className="w-32 h-32 rounded-3xl overflow-hidden border-4 border-white/20 shadow-2xl"><img src="/cola_pig.png" className="w-full h-full object-cover" /></div>
