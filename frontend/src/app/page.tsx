@@ -550,8 +550,8 @@ export default function Home() {
                       { t: "👑 綜合共振", a: data.action, d: `DMPI ${data.indicators.dmpi.toFixed(1)}`, c: "#f5c842", v: data.indicators.dmpi },
                       { t: "📊 RSI (14)", a: data.indicators.rsi > 70 ? "⚠️ 超買" : data.indicators.rsi < 30 ? "✅ 超跌" : "中性", d: `相對強弱`, c: "#a855f7", v: data.indicators.rsi },
                       { t: "📈 MACD", a: data.indicators.macd_hist > 0 ? "偏多" : "偏空", d: `MACD ${data.indicators.macd.toFixed(3)}`, c: "#f0a030", v: data.indicators.macd_hist },
-                      { t: "🧠 AI 模型", a: data.ai?.action||"離線", d: data.ai?.reason||"-", c: "#3b8bff" }
-                    ].map((c, i) => (
+                      { t: "🧠 AI 模型", a: data.ai?.action||"離線", d: data.ai?.reason||"-", c: "#3b8bff", v: undefined }
+                    ].map((c: any, i) => (
                       <div key={i} className="glass p-5 rounded-xl border-2" style={{ borderColor: `${c.c}44`, background: `${c.c}0a` }}>
                         <div className="text-sm font-black uppercase tracking-widest mb-2" style={{ color: c.c }}>{c.t}</div>
                         <div className={`text-xl font-black ${actionColor(c.a)}`}>{c.a}</div>
